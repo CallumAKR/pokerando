@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""One-time migration to shared runtime_paths for frozen Randomizer.exe builds."""
+
+import re
+import shutil
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+RANDOMIZER = ROOT / "randomizer"
+
+TARGETS = {
+    "master_randomizer.py": "root_randomizer",
+    "randomizer_engine.py": "root_randomizer",
+    "build_backend.py": "root_randomizer",
+    "clean_map_restore.py": "root_randomizer",
+    "output_manager.py": "output",
+}
+
+
+def ensure_import(text, names):
+    wanted = f"from runtime_paths import {', '.join(names)}\n"
+
+    if wanted in text:
+        return text
+
+    # Insert after pathlib import if possible.
+    match = re.search(r"^from pathlib import Path\s*$", text, re.MULTILINE)
+    if not match:
+        raise RuntimeError("Could not locate `from pathlib import Path` import.")
+
+    end = match.end()
+    return text[:end] + "\n\n" + wanted.rstrip("\n") + text[end:]
+
+
+def patch_root_randomizer(text):
+    text = ensure_import(
+        text,
+        ("ROOT", "RANDOMIZER_DIR"),
+    )
+
+    pattern = re.compile(
+        r"^ROOT\s*=\s*Path\(__file__\)\.resolve\(\)\.parent\.parent\s*\n"
+        r"RANDOMIZER_DIR\s*=\s*ROOT\s*/\s*[\"']randomizer[\"']\s*\n?",
+        re.MULTILINE,
+    )
+
+    new_text, count = pattern.subn("", text, count=1)
+
+    if count == 0:
+        # Already migrated is fine.
+        if "from runtime_paths import ROOT, RANDOMIZER_DIR" in text:
+            return text
+        raise RuntimeError("Could not locate local ROOT/RANDOMIZER_DIR definitions.")
+
+    return new_text
+
+
+def patch_output(text):
+    text = ensure_import(
+        text,
+        ("ROOT", "OUTPUT_DIR"),
+    )
+
+    pattern = re.compile(
+        r"^ROOT\s*=\s*Path\(__file__\)\.resolve\(\)\.parent\.parent\s*\n"
+        r"OUTPUT_DIR\s*=\s*ROOT\s*/\s*[\"']output[\"']\s*\n?",
+        re.MULTILINE,
+    )
+
+    new_text, count = pattern.subn("", text, count=1)
+
+    if count == 0:
+        if "from runtime_paths import ROOT, OUTPUT_DIR" in text:
+            return text
+        raise RuntimeError("Could not locate local ROOT/OUTPUT_DIR definitions.")
+
+    return new_text
+
+
+def main():
+    runtime_source = RANDOMIZER / "runtime_paths.py"
+
+    if not runtime_source.exists():
+        raise RuntimeError(
+            "randomizer/runtime_paths.py is missing. Copy it into place first."
+        )
+
+    print("Migrating randomizer runtime paths...\n")
+
+    for filename, mode in TARGETS.items():
+        path = RANDOMIZER / filename
+
+        if not path.exists():
+            raise RuntimeError(f"Missing required file: {path}")
+
+        original = path.read_text(encoding="utf-8")
+
+        if mode == "root_randomizer":
+            updated = patch_root_randomizer(original)
+        else:
+            updated = patch_output(original)
+
+        backup = path.with_suffix(path.suffix + ".pre_standalone.bak")
+
+        if not backup.exists():
+            shutil.copy2(path, backup)
+
+        path.write_text(updated, encoding="utf-8")
+        compile(updated, str(path), "exec")
+
+        print(f"[OK] {filename}")
+
+    print()
+    print("Standalone runtime path migration complete.")
+
+
+if __name__ == "__main__":
+    main()

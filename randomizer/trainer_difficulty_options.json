@@ -1,0 +1,8 @@
+{
+  "evolution_stage_rules": true,
+  "boss_permanent_megas": true,
+  "trainer_randomisation": true,
+  "permanent_megas": true,
+  "level_boost": 0,
+  "level_scope": "all"
+}

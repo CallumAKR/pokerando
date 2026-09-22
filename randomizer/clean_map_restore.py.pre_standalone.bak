@@ -1,0 +1,366 @@
+#!/usr/bin/env python3
+
+import re
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+RANDOMIZER_DIR = ROOT / "randomizer"
+
+# Packaged clean reference data.
+BASELINE_ROOT = RANDOMIZER_DIR / "baseline"
+
+
+# ============================================================
+# GENERIC TOKEN RESTORATION
+# ============================================================
+
+def _restore_pattern_in_file(
+    clean_file,
+    working_file,
+    pattern,
+    description,
+):
+    """
+    Restore only the regex capture group named 'value' from the
+    packaged clean baseline into the corresponding occurrence in
+    the working file.
+
+    Everything else in the working file is preserved.
+    """
+
+    clean_text = clean_file.read_text(
+        encoding="utf-8"
+    )
+
+    working_text = working_file.read_text(
+        encoding="utf-8"
+    )
+
+    regex = re.compile(
+        pattern,
+        re.MULTILINE,
+    )
+
+    clean_matches = list(
+        regex.finditer(clean_text)
+    )
+
+    if not clean_matches:
+        return 0
+
+    working_matches = list(
+        regex.finditer(working_text)
+    )
+
+    if len(clean_matches) != len(working_matches):
+        raise RuntimeError(
+            f"Cannot safely restore {description}:\n"
+            f"{working_file.relative_to(ROOT)}\n\n"
+            f"Baseline occurrences: {len(clean_matches)}\n"
+            f"Working occurrences:  {len(working_matches)}\n\n"
+            "The file structure differs from the packaged baseline, so "
+            "the randomizer is stopping rather than overwrite unrelated "
+            "permanent edits."
+        )
+
+    replacements = []
+
+    for clean_match, working_match in zip(
+        clean_matches,
+        working_matches,
+    ):
+        clean_value = clean_match.group("value")
+        working_value = working_match.group("value")
+
+        if clean_value == working_value:
+            continue
+
+        replacements.append(
+            (
+                working_match.start("value"),
+                working_match.end("value"),
+                clean_value,
+            )
+        )
+
+    # Work backwards so string offsets remain valid.
+    for start, end, value in reversed(replacements):
+        working_text = (
+            working_text[:start]
+            + value
+            + working_text[end:]
+        )
+
+    if replacements:
+        working_file.write_text(
+            working_text,
+            encoding="utf-8",
+        )
+
+    return len(replacements)
+
+
+def _restore_directory_patterns(
+    relative_directory,
+    filename_pattern,
+    patterns,
+):
+    """
+    Compare packaged baseline files with working game files.
+
+    Only regex capture group 'value' is restored.
+    Whole map/script files are never copied into the game.
+    """
+
+    clean_dir = BASELINE_ROOT / relative_directory
+
+    if not clean_dir.exists():
+        raise RuntimeError(
+            "Packaged baseline directory missing:\n"
+            f"{clean_dir}\n\n"
+            "Run randomizer/prepare_baseline.py once during development."
+        )
+
+    changed = 0
+    changed_files = set()
+
+    for clean_file in sorted(
+        clean_dir.rglob(filename_pattern)
+    ):
+        relative_file = clean_file.relative_to(
+            BASELINE_ROOT
+        )
+
+        working_file = ROOT / relative_file
+
+        if not working_file.exists():
+            continue
+
+        file_changes = 0
+
+        for pattern, description in patterns:
+            file_changes += _restore_pattern_in_file(
+                clean_file,
+                working_file,
+                pattern,
+                description,
+            )
+
+        if file_changes:
+            changed += file_changes
+            changed_files.add(relative_file)
+
+    return changed, changed_files
+
+
+# ============================================================
+# STATIC ENCOUNTERS
+# ============================================================
+
+STATIC_PATTERNS = [
+    (
+        r"^\s*setwildbattle\s+"
+        r"(?P<value>SPECIES_[A-Z0-9_]+)"
+        r"\s*,",
+        "static battle species",
+    ),
+    (
+        r"^\s*playmoncry\s+"
+        r"(?P<value>SPECIES_[A-Z0-9_]+)"
+        r"\s*,",
+        "static encounter cry species",
+    ),
+    (
+        r"^\s*setvar\s+VAR_0x8004\s*,\s*"
+        r"(?P<value>SPECIES_[A-Z0-9_]+)",
+        "static encounter species variable",
+    ),
+]
+
+
+def restore_static_encounters():
+    print(
+        "Restoring clean static encounter values..."
+    )
+
+    total = 0
+    files = set()
+
+    for directory in (
+        Path("data/maps"),
+        Path("data/scripts"),
+    ):
+        count, changed_files = (
+            _restore_directory_patterns(
+                directory,
+                "*.inc",
+                STATIC_PATTERNS,
+            )
+        )
+
+        total += count
+        files.update(changed_files)
+
+    print(
+        f"Restored {total} static encounter values "
+        f"across {len(files)} files."
+    )
+
+
+# ============================================================
+# EGG GIFTS
+# ============================================================
+
+EGG_PATTERNS = [
+    (
+        r"^\s*giveegg\s+"
+        r"(?P<value>SPECIES_[A-Z0-9_]+)",
+        "gift egg species",
+    ),
+]
+
+
+def restore_egg_gifts():
+    print(
+        "Restoring clean gift egg values..."
+    )
+
+    total = 0
+    files = set()
+
+    for directory in (
+        Path("data/maps"),
+        Path("data/scripts"),
+    ):
+        count, changed_files = (
+            _restore_directory_patterns(
+                directory,
+                "*.inc",
+                EGG_PATTERNS,
+            )
+        )
+
+        total += count
+        files.update(changed_files)
+
+    print(
+        f"Restored {total} gift egg values "
+        f"across {len(files)} files."
+    )
+
+
+# ============================================================
+# FOUND ITEMS - MAP JSON
+# ============================================================
+
+MAP_ITEM_PATTERNS = [
+    (
+        r'"trainer_sight_or_berry_tree_id"\s*:\s*"'
+        r'(?P<value>ITEM_[A-Z0-9_]+)"',
+        "map item ball",
+    ),
+    (
+        r'"hidden_item"\s*:\s*"'
+        r'(?P<value>ITEM_[A-Z0-9_]+)"',
+        "hidden map item",
+    ),
+    (
+        r'"item"\s*:\s*"'
+        r'(?P<value>ITEM_[A-Z0-9_]+)"',
+        "map item",
+    ),
+]
+
+
+# ============================================================
+# FOUND ITEMS - SCRIPT COMMANDS
+# ============================================================
+#
+# Shops are deliberately not included.
+# ============================================================
+
+SCRIPT_ITEM_PATTERNS = [
+    (
+        r"^\s*giveitem\s+"
+        r"(?P<value>ITEM_[A-Z0-9_]+)",
+        "script giveitem",
+    ),
+    (
+        r"^\s*additem\s+"
+        r"(?P<value>ITEM_[A-Z0-9_]+)",
+        "script additem",
+    ),
+    (
+        r"^\s*itemball\s+"
+        r"(?P<value>ITEM_[A-Z0-9_]+)",
+        "script item ball",
+    ),
+    (
+        r"^\s*hiddenitem\s+"
+        r"(?P<value>ITEM_[A-Z0-9_]+)",
+        "script hidden item",
+    ),
+]
+
+
+def restore_found_items():
+    print(
+        "Restoring clean found-item values..."
+    )
+
+    total = 0
+    files = set()
+
+    count, changed_files = (
+        _restore_directory_patterns(
+            Path("data/maps"),
+            "map.json",
+            MAP_ITEM_PATTERNS,
+        )
+    )
+
+    total += count
+    files.update(changed_files)
+
+    for directory in (
+        Path("data/maps"),
+        Path("data/scripts"),
+    ):
+        count, changed_files = (
+            _restore_directory_patterns(
+                directory,
+                "*.inc",
+                SCRIPT_ITEM_PATTERNS,
+            )
+        )
+
+        total += count
+        files.update(changed_files)
+
+    print(
+        f"Restored {total} found-item values "
+        f"across {len(files)} files."
+    )
+
+
+# ============================================================
+# MANUAL TEST
+# ============================================================
+
+if __name__ == "__main__":
+    if not BASELINE_ROOT.exists():
+        raise RuntimeError(
+            "Packaged baseline does not exist:\n"
+            f"{BASELINE_ROOT}\n\n"
+            "Run randomizer/prepare_baseline.py first."
+        )
+
+    restore_static_encounters()
+    restore_egg_gifts()
+    restore_found_items()
+
+    print()
+    print(
+        "Packaged map-data restoration complete."
+    )

@@ -1,0 +1,359 @@
+#!/usr/bin/env python3
+"""
+Import the installed devkitARM toolchain into the randomizer's portable
+Windows build bundle.
+
+Release-development utility only.
+
+The final player does NOT need devkitPro installed; this script is used by us
+to prepare the toolchain that will later ship inside the release package.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+RANDOMIZER_DIR = ROOT / "randomizer"
+
+DEFAULT_DEVKITPRO = Path(
+    os.environ.get(
+        "DEVKITPRO_WINDOWS",
+        r"C:\devkitPro",
+    )
+)
+
+SOURCE_TOOLCHAIN = (
+    DEFAULT_DEVKITPRO
+    / "devkitARM"
+)
+
+TOOLS_ROOT = (
+    RANDOMIZER_DIR
+    / "tools"
+    / "windows"
+)
+
+DEST_TOOLCHAIN = (
+    TOOLS_ROOT
+    / "toolchain"
+)
+
+
+def no_console_kwargs():
+    if os.name != "nt":
+        return {}
+
+    return {
+        "creationflags": getattr(
+            subprocess,
+            "CREATE_NO_WINDOW",
+            0,
+        )
+    }
+
+
+def remove_path(path):
+    if not path.exists():
+        return
+
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def run_capture(command, input_text=None):
+    result = subprocess.run(
+        [
+            str(part)
+            for part in command
+        ],
+        input=input_text,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        **no_console_kwargs(),
+    )
+
+    return (
+        result.returncode,
+        result.stdout or "",
+    )
+
+
+def verify_source_toolchain():
+    gcc = (
+        SOURCE_TOOLCHAIN
+        / "bin"
+        / "arm-none-eabi-gcc.exe"
+    )
+
+    cpp = (
+        SOURCE_TOOLCHAIN
+        / "bin"
+        / "arm-none-eabi-cpp.exe"
+    )
+
+    if not gcc.exists():
+        raise RuntimeError(
+            "Installed devkitARM was not found.\n\n"
+            f"Expected:\n  {gcc}\n\n"
+            "Install the devkitPro GBA Development tools first."
+        )
+
+    if not cpp.exists():
+        raise RuntimeError(
+            "Installed devkitARM is missing arm-none-eabi-cpp.exe:\n"
+            f"{cpp}"
+        )
+
+    code, output = run_capture(
+        [
+            gcc,
+            "--version",
+        ]
+    )
+
+    if code != 0:
+        raise RuntimeError(
+            "Could not run installed devkitARM GCC:\n"
+            + output
+        )
+
+    first_line = (
+        output.strip().splitlines()[0]
+        if output.strip()
+        else "Unknown version"
+    )
+
+    print(
+        f"Installed devkitARM GCC: {first_line}"
+    )
+
+
+def copy_toolchain():
+    print()
+    print(
+        f"Copying devkitARM:\n"
+        f"  from: {SOURCE_TOOLCHAIN}\n"
+        f"  to:   {DEST_TOOLCHAIN}"
+    )
+
+    remove_path(
+        DEST_TOOLCHAIN
+    )
+
+    DEST_TOOLCHAIN.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    shutil.copytree(
+        SOURCE_TOOLCHAIN,
+        DEST_TOOLCHAIN,
+    )
+
+    marker = (
+        DEST_TOOLCHAIN
+        / "RANDOMIZER_TOOLCHAIN_SOURCE.txt"
+    )
+
+    marker.write_text(
+        "Portable toolchain prepared from installed devkitARM.\n"
+        f"Source during release preparation: {SOURCE_TOOLCHAIN}\n",
+        encoding="utf-8",
+    )
+
+
+def verify_copied_toolchain():
+    gcc = (
+        DEST_TOOLCHAIN
+        / "bin"
+        / "arm-none-eabi-gcc.exe"
+    )
+
+    cpp = (
+        DEST_TOOLCHAIN
+        / "bin"
+        / "arm-none-eabi-cpp.exe"
+    )
+
+    required = (
+        gcc,
+        cpp,
+        DEST_TOOLCHAIN / "bin" / "arm-none-eabi-as.exe",
+        DEST_TOOLCHAIN / "bin" / "arm-none-eabi-ld.exe",
+        DEST_TOOLCHAIN / "bin" / "arm-none-eabi-objcopy.exe",
+        DEST_TOOLCHAIN / "bin" / "arm-none-eabi-objdump.exe",
+        DEST_TOOLCHAIN / "bin" / "arm-none-eabi-ar.exe",
+    )
+
+    missing = [
+        path
+        for path in required
+        if not path.exists()
+    ]
+
+    if missing:
+        raise RuntimeError(
+            "Copied devkitARM is incomplete:\n"
+            + "\n".join(
+                str(path)
+                for path in missing
+            )
+        )
+
+    code, output = run_capture(
+        [
+            gcc,
+            "--version",
+        ]
+    )
+
+    if code != 0:
+        raise RuntimeError(
+            "Copied devkitARM GCC would not run:\n"
+            + output
+        )
+
+    print()
+    print(
+        "Copied devkitARM compiler runs successfully."
+    )
+
+
+def trainer_preprocessor_smoke_test():
+    """
+    Reproduce the important part of the trainer build pipeline.
+
+    trainerproc expects the preprocessed text to begin with trainer syntax, not
+    a preprocessor line marker such as:
+        # 0 "<stdin>"
+
+    This test catches an incompatible ARM cpp before a full ROM build.
+    """
+
+    cpp = (
+        DEST_TOOLCHAIN
+        / "bin"
+        / "arm-none-eabi-cpp.exe"
+    )
+
+    sample = (
+        "=== TRAINER_RANDOMIZER_TEST ===\n"
+        "Name: TEST\n"
+        "Class: Youngster\n"
+        "\n"
+        "SPECIES_PIKACHU\n"
+        "Level: 5\n"
+    )
+
+    code, output = run_capture(
+        [
+            cpp,
+            "-Wno-trigraphs",
+            "-DMODERN=1",
+            "-DTESTING=0",
+            "-DEMERALD",
+            "-std=gnu17",
+            "-traditional-cpp",
+            "-",
+        ],
+        input_text=sample,
+    )
+
+    if code != 0:
+        raise RuntimeError(
+            "devkitARM preprocessor smoke test failed:\n"
+            + output
+        )
+
+    meaningful_lines = [
+        line
+        for line in output.splitlines()
+        if line.strip()
+    ]
+
+    print()
+    print(
+        "Trainer preprocessor smoke test:"
+    )
+
+    for line in meaningful_lines[:8]:
+        print(
+            f"  {line}"
+        )
+
+    if not meaningful_lines:
+        raise RuntimeError(
+            "devkitARM preprocessor returned no output."
+        )
+
+    first = meaningful_lines[0].lstrip()
+
+    if first.startswith("#"):
+        raise RuntimeError(
+            "The copied devkitARM preprocessor still emits a line marker "
+            "before trainer data:\n\n"
+            f"  {meaningful_lines[0]}\n\n"
+            "Do not attempt the full ROM build yet."
+        )
+
+    if not first.startswith("==="):
+        raise RuntimeError(
+            "Unexpected first meaningful line from devkitARM preprocessor:\n"
+            f"  {meaningful_lines[0]}"
+        )
+
+    print(
+        "  PASS: trainer data starts directly with === syntax."
+    )
+
+
+def main():
+    if os.name != "nt":
+        raise RuntimeError(
+            "Run this script from native Windows Python."
+        )
+
+    print("=" * 70)
+    print(
+        "IMPORTING DEVKITARM INTO PORTABLE BUNDLE"
+    )
+    print("=" * 70)
+
+    verify_source_toolchain()
+    copy_toolchain()
+    verify_copied_toolchain()
+    trainer_preprocessor_smoke_test()
+
+    print()
+    print("=" * 70)
+    print(
+        "DEVKITARM PORTABLE TOOLCHAIN READY"
+    )
+    print("=" * 70)
+    print()
+    print(
+        r"Next: py randomizer\windows_toolchain_check.py"
+    )
+
+
+if __name__ == "__main__":
+    try:
+        main()
+
+    except Exception as exc:
+        print()
+        print("=" * 70)
+        print(
+            "DEVKITARM IMPORT FAILED"
+        )
+        print("=" * 70)
+        print()
+        print(exc)
+        sys.exit(1)

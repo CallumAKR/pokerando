@@ -1,0 +1,1071 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import random
+import re
+import shutil
+import subprocess
+import sys
+
+from datetime import datetime
+from pathlib import Path
+
+from config import PROTECTED_SPECIES
+
+from clean_map_restore import (
+    restore_static_encounters,
+    restore_egg_gifts,
+    restore_found_items,
+)
+
+from randomizer_engine import (
+    run_component as engine_run_component,
+)
+
+from build_backend import (
+    build_rom,
+)
+
+from output_manager import (
+    publish_rom,
+)
+
+
+# ============================================================
+# PATHS
+# ============================================================
+
+ROOT = Path(__file__).resolve().parent.parent
+RANDOMIZER_DIR = ROOT / "randomizer"
+
+# Packaged clean baseline.
+#
+# This replaces the old dependency on:
+#     ~/pokeemerald-clean
+#
+# The final standalone application can ship this directory
+# alongside/bundled with the executable.
+BASELINE_ROOT = RANDOMIZER_DIR / "baseline"
+
+LOG_DIR = RANDOMIZER_DIR / "logs"
+
+SPECIES_DIR = (
+    ROOT / "src/data/pokemon/species_info"
+)
+
+LEARNSET_DIR = (
+    ROOT / "src/data/pokemon/level_up_learnsets"
+)
+
+# P_LVL_UP_LEARNSETS = GEN_LATEST in this project,
+# currently resolving to Gen 9.
+ACTIVE_LEARNSET_FILE = (
+    LEARNSET_DIR / "gen_9.h"
+)
+
+
+# ============================================================
+# RANDOMIZER COMPONENTS
+# ============================================================
+
+COMPONENT_ORDER = [
+    "abilities",
+    "moves",
+    "tms",
+    "trade_evos",
+    "trades",
+    "wild",
+    "statics",
+    "eggs",
+    "starters",
+
+    # Trainers intentionally come after moves/TMs because
+    # trainer movesets use the resulting randomized learnsets.
+    "trainers",
+
+    "items",
+]
+
+
+COMPONENT_LABELS = {
+    "abilities": "Abilities",
+    "moves": "Level-up moves",
+    "tms": "TM compatibility",
+    "trade_evos": "Trade evolutions",
+    "trades": "NPC trades",
+    "wild": "Wild encounters",
+    "statics": "Static encounters",
+    "eggs": "Gift eggs",
+    "starters": "Starters",
+    "trainers": "Trainers",
+    "items": "Found items",
+}
+
+
+SCRIPT_CANDIDATES = {
+    "abilities": (
+        "randomize_abilities.py",
+    ),
+
+    "moves": (
+        "randomize_moves.py",
+    ),
+
+    "tms": (
+        "randomize_tms.py",
+    ),
+
+    "trade_evos": (
+        "randomize_trade_evos.py",
+        "randomize_trade_evolutions.py",
+    ),
+
+    "trades": (
+        "randomize_trades.py",
+    ),
+
+    "wild": (
+        "randomize_encounters.py",
+    ),
+
+    "statics": (
+        "randomize_static_encounters.py",
+    ),
+
+    "eggs": (
+        "randomize_egg_gifts.py",
+    ),
+
+    "starters": (
+        "randomize_starters.py",
+    ),
+
+    "trainers": (
+        "randomize_trainers.py",
+    ),
+
+    "items": (
+        "randomize_items.py",
+    ),
+}
+
+
+# ============================================================
+# RANDOMIZER-OWNED CLEAN DATA
+# ============================================================
+#
+# These files/directories are ALWAYS restored before a run,
+# even when their corresponding randomizer is not selected.
+#
+# This prevents data from a previous seed leaking into a new
+# partial randomization.
+#
+# IMPORTANT:
+# data/maps and data/scripts are deliberately NOT listed here.
+# They contain permanent game changes. Their randomizable
+# species/item tokens are restored separately by
+# clean_map_restore.py.
+# ============================================================
+
+CLEAN_RESET_TARGETS = [
+    Path("src/data/pokemon/species_info"),
+    Path("src/data/pokemon/level_up_learnsets"),
+    Path("src/data/pokemon/all_learnables.json"),
+    Path("src/data/trade.h"),
+    Path("src/data/wild_encounters.json"),
+    Path("src/data/trainers.party"),
+    Path("src/starter_choose.c"),
+]
+
+
+# ============================================================
+# PROTECTED POKÉMON REGEX
+# ============================================================
+
+SPECIES_HEADER_PATTERN = re.compile(
+    r"^\s*\[(SPECIES_[A-Z0-9_]+)\]\s*=\s*$",
+    re.MULTILINE,
+)
+
+LEARNSET_POINTER_PATTERN = re.compile(
+    r"\.levelUpLearnset\s*=\s*([A-Za-z0-9_]+)"
+)
+
+LEARNSET_BLOCK_PATTERN = re.compile(
+    r"(static const struct LevelUpMove\s+"
+    r"([A-Za-z0-9_]+)\[\]\s*=\s*\{\n)"
+    r"(.*?)"
+    r"(^\};)",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+# ============================================================
+# FILE HELPERS
+# ============================================================
+
+def remove_path(path):
+    if not path.exists():
+        return
+
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def copy_path(source, destination):
+    if source.is_dir():
+
+        shutil.copytree(
+            source,
+            destination,
+            dirs_exist_ok=True,
+        )
+
+    else:
+
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        shutil.copy2(
+            source,
+            destination,
+        )
+
+
+# ============================================================
+# PROTECTED SPECIES
+# ============================================================
+
+def find_species_block(filepath, species):
+    text = filepath.read_text(
+        encoding="utf-8"
+    )
+
+    matches = list(
+        SPECIES_HEADER_PATTERN.finditer(text)
+    )
+
+    for index, match in enumerate(matches):
+
+        if match.group(1) != species:
+            continue
+
+        start = match.start()
+
+        if index + 1 < len(matches):
+            end = matches[index + 1].start()
+        else:
+            end = len(text)
+
+        return (
+            start,
+            end,
+            text[start:end],
+        )
+
+    return None
+
+
+def save_protected_species():
+    saved = {}
+
+    print()
+    print("Saving protected Pokémon...")
+
+    if not PROTECTED_SPECIES:
+        print("  None")
+        return saved
+
+    for species in sorted(PROTECTED_SPECIES):
+
+        found = False
+
+        for filepath in sorted(
+            SPECIES_DIR.rglob("*.h")
+        ):
+
+            result = find_species_block(
+                filepath,
+                species,
+            )
+
+            if result is None:
+                continue
+
+            _, _, block = result
+
+            learnset_match = (
+                LEARNSET_POINTER_PATTERN.search(
+                    block
+                )
+            )
+
+            learnset = (
+                learnset_match.group(1)
+                if learnset_match
+                else None
+            )
+
+            saved[species] = {
+                "file": filepath.relative_to(ROOT),
+                "block": block,
+                "learnset": learnset,
+            }
+
+            print(
+                f"  {species}"
+            )
+
+            found = True
+            break
+
+        if not found:
+            raise RuntimeError(
+                "Protected species not found:\n"
+                f"{species}"
+            )
+
+    return saved
+
+
+def find_active_learnset(symbol):
+    filepath = ACTIVE_LEARNSET_FILE
+
+    if not filepath.exists():
+        raise RuntimeError(
+            "Active Gen 9 learnset file missing:\n"
+            f"{filepath}"
+        )
+
+    text = filepath.read_text(
+        encoding="utf-8"
+    )
+
+    for match in (
+        LEARNSET_BLOCK_PATTERN.finditer(text)
+    ):
+
+        if match.group(2) == symbol:
+
+            return {
+                "file": filepath.relative_to(ROOT),
+                "block": match.group(0),
+            }
+
+    return None
+
+
+def save_protected_learnsets(
+    protected_species
+):
+    saved = {}
+
+    for species, info in (
+        protected_species.items()
+    ):
+
+        symbol = info["learnset"]
+
+        if not symbol:
+            continue
+
+        if symbol in saved:
+            continue
+
+        result = find_active_learnset(
+            symbol
+        )
+
+        if result is None:
+            raise RuntimeError(
+                "Protected Gen 9 learnset "
+                f"not found: {symbol}\n"
+                f"Species: {species}"
+            )
+
+        saved[symbol] = result
+
+    return saved
+
+
+def restore_protected_species(saved):
+    if not saved:
+        return
+
+    print()
+    print("Restoring protected Pokémon...")
+
+    for species, info in saved.items():
+
+        filepath = (
+            ROOT / info["file"]
+        )
+
+        result = find_species_block(
+            filepath,
+            species,
+        )
+
+        if result is None:
+            raise RuntimeError(
+                "Could not restore protected "
+                f"species: {species}"
+            )
+
+        start, end, _ = result
+
+        text = filepath.read_text(
+            encoding="utf-8"
+        )
+
+        text = (
+            text[:start]
+            + info["block"]
+            + text[end:]
+        )
+
+        filepath.write_text(
+            text,
+            encoding="utf-8",
+        )
+
+
+def restore_protected_learnsets(saved):
+    if not saved:
+        return
+
+    filepath = ACTIVE_LEARNSET_FILE
+
+    text = filepath.read_text(
+        encoding="utf-8"
+    )
+
+    for symbol, info in saved.items():
+
+        found = False
+
+        for match in list(
+            LEARNSET_BLOCK_PATTERN.finditer(text)
+        ):
+
+            if match.group(2) != symbol:
+                continue
+
+            text = (
+                text[:match.start()]
+                + info["block"]
+                + text[match.end():]
+            )
+
+            found = True
+            break
+
+        if not found:
+            raise RuntimeError(
+                "Could not restore protected "
+                f"learnset: {symbol}"
+            )
+
+    filepath.write_text(
+        text,
+        encoding="utf-8",
+    )
+
+
+# ============================================================
+# BASELINE VALIDATION / RESTORATION
+# ============================================================
+
+def validate_baseline():
+    if not BASELINE_ROOT.exists():
+
+        raise RuntimeError(
+            "Packaged randomizer baseline is missing:\n\n"
+            f"{BASELINE_ROOT}\n\n"
+            "During development, run:\n"
+            "  python3 randomizer/prepare_baseline.py"
+        )
+
+    for relative_path in CLEAN_RESET_TARGETS:
+
+        source = (
+            BASELINE_ROOT / relative_path
+        )
+
+        if not source.exists():
+
+            raise RuntimeError(
+                "Missing packaged baseline data:\n"
+                f"{source}"
+            )
+
+    for reference_path in (
+        Path("data/maps"),
+        Path("data/scripts"),
+    ):
+
+        source = (
+            BASELINE_ROOT / reference_path
+        )
+
+        if not source.exists():
+
+            raise RuntimeError(
+                "Missing packaged map/script "
+                "reference data:\n"
+                f"{source}"
+            )
+
+
+def restore_clean_source():
+    print()
+    print(
+        "Restoring packaged clean randomizable data..."
+    )
+    print()
+
+    for relative_path in CLEAN_RESET_TARGETS:
+
+        source = (
+            BASELINE_ROOT / relative_path
+        )
+
+        destination = (
+            ROOT / relative_path
+        )
+
+        print(
+            f"  {relative_path}"
+        )
+
+        remove_path(destination)
+
+        copy_path(
+            source,
+            destination,
+        )
+
+
+def restore_clean_map_randomizer_data():
+    print()
+    print(
+        "Restoring clean map randomizer values..."
+    )
+    print()
+
+    # These functions restore only the exact randomized tokens
+    # they own. Whole map/script files are never replaced.
+
+    restore_static_encounters()
+    restore_egg_gifts()
+    restore_found_items()
+
+
+# ============================================================
+# SCRIPT LOOKUP
+# ============================================================
+
+def resolve_script(component):
+    candidates = (
+        SCRIPT_CANDIDATES[component]
+    )
+
+    for filename in candidates:
+
+        path = (
+            RANDOMIZER_DIR / filename
+        )
+
+        if path.exists():
+            return path
+
+    raise RuntimeError(
+        "No script found for component "
+        f"'{component}'. Tried:\n"
+        + "\n".join(
+            f"  {filename}"
+            for filename in candidates
+        )
+    )
+
+
+# ============================================================
+# RUN COMPONENT
+# ============================================================
+
+def run_component(
+    component,
+    seed,
+    master_log,
+    wild_mode=None,
+    trainer_mode=None,
+):
+    """
+    Run one randomizer through the in-process execution engine.
+
+    The legacy scripts still receive the same seed / --mode arguments they
+    previously received from subprocess calls, but no child Python process is
+    created. This is the compatibility bridge toward the standalone GUI/EXE.
+    """
+
+    return engine_run_component(
+        component,
+        seed,
+        log_stream=master_log,
+        wild_mode=wild_mode,
+        trainer_mode=trainer_mode,
+        output_stream=sys.stdout,
+    )
+
+
+# ============================================================
+# MASTER RANDOMIZATION
+# ============================================================
+
+def randomize(
+    seed,
+    selected_components,
+    wild_mode=None,
+    trainer_mode=None,
+    do_build=False,
+):
+    validate_baseline()
+
+    invalid = (
+        set(selected_components)
+        - set(COMPONENT_ORDER)
+    )
+
+    if invalid:
+        raise RuntimeError(
+            "Unknown components: "
+            + ", ".join(
+                sorted(invalid)
+            )
+        )
+
+    selected_components = [
+        component
+        for component in COMPONENT_ORDER
+        if component in selected_components
+    ]
+
+    # --------------------------------------------------------
+    # REQUIRED MODE VALIDATION
+    # --------------------------------------------------------
+
+    if "wild" in selected_components:
+
+        if wild_mode not in {
+            "mapping",
+            "full",
+        }:
+
+            raise RuntimeError(
+                "Wild encounters are selected, "
+                "but no valid wild mode was supplied."
+            )
+
+    if "trainers" in selected_components:
+
+        if trainer_mode not in {
+            "mapping",
+            "full",
+        }:
+
+            raise RuntimeError(
+                "Trainers are selected, "
+                "but no valid trainer mode was supplied."
+            )
+
+    # --------------------------------------------------------
+    # HEADER
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 70)
+    print(
+        "POKEEMERALD MASTER RANDOMIZER"
+    )
+    print("=" * 70)
+
+    print()
+    print(
+        f"Seed: {seed}"
+    )
+
+    print()
+    print(
+        "Selected components:"
+    )
+
+    if selected_components:
+
+        for component in selected_components:
+
+            extra = ""
+
+            if component == "wild":
+                extra = (
+                    f" [{wild_mode}]"
+                )
+
+            elif component == "trainers":
+                extra = (
+                    f" [{trainer_mode}]"
+                )
+
+            print(
+                "  ✓ "
+                + COMPONENT_LABELS[
+                    component
+                ]
+                + extra
+            )
+
+    else:
+        print("  None")
+
+    # --------------------------------------------------------
+    # PROTECT CUSTOM POKÉMON BEFORE BASELINE RESTORE
+    # --------------------------------------------------------
+
+    protected_species = (
+        save_protected_species()
+    )
+
+    protected_learnsets = (
+        save_protected_learnsets(
+            protected_species
+        )
+    )
+
+    # --------------------------------------------------------
+    # ALWAYS RESET ALL RANDOMIZABLE DATA
+    # --------------------------------------------------------
+
+    restore_clean_source()
+
+    restore_clean_map_randomizer_data()
+
+    # --------------------------------------------------------
+    # RESTORE PROTECTED POKÉMON
+    # --------------------------------------------------------
+
+    restore_protected_species(
+        protected_species
+    )
+
+    restore_protected_learnsets(
+        protected_learnsets
+    )
+
+    # --------------------------------------------------------
+    # LOG
+    # --------------------------------------------------------
+
+    LOG_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    log_path = (
+        LOG_DIR
+        / f"master_seed_{seed}.txt"
+    )
+
+    with log_path.open(
+        "w",
+        encoding="utf-8",
+    ) as master_log:
+
+        master_log.write(
+            "POKEEMERALD MASTER RANDOMIZER\n"
+        )
+
+        master_log.write(
+            f"Seed: {seed}\n"
+        )
+
+        master_log.write(
+            "Generated: "
+            f"{datetime.now().isoformat()}\n"
+        )
+
+        master_log.write(
+            "\nSelected components:\n"
+        )
+
+        for component in selected_components:
+
+            master_log.write(
+                "  "
+                + COMPONENT_LABELS[
+                    component
+                ]
+            )
+
+            if component == "wild":
+                master_log.write(
+                    f" [{wild_mode}]"
+                )
+
+            if component == "trainers":
+                master_log.write(
+                    f" [{trainer_mode}]"
+                )
+
+            master_log.write("\n")
+
+        master_log.write(
+            "\nProtected species:\n"
+        )
+
+        if PROTECTED_SPECIES:
+
+            for species in sorted(
+                PROTECTED_SPECIES
+            ):
+
+                master_log.write(
+                    f"  {species}\n"
+                )
+
+        else:
+
+            master_log.write(
+                "  None\n"
+            )
+
+        # ----------------------------------------------------
+        # RUN ONLY SELECTED RANDOMIZERS
+        # ----------------------------------------------------
+
+        for component in selected_components:
+
+            run_component(
+                component,
+                seed,
+                master_log,
+                wild_mode=wild_mode,
+                trainer_mode=trainer_mode,
+            )
+
+    # --------------------------------------------------------
+    # FINAL PROTECTION PASS
+    # --------------------------------------------------------
+
+    restore_protected_species(
+        protected_species
+    )
+
+    restore_protected_learnsets(
+        protected_learnsets
+    )
+
+    print()
+    print("=" * 70)
+    print(
+        "RANDOMIZATION COMPLETE"
+    )
+    print("=" * 70)
+
+    print()
+    print(
+        f"Seed: {seed}"
+    )
+
+    print(
+        f"Log: {log_path}"
+    )
+
+    if do_build:
+        built_rom = build_rom()
+
+        published_rom = publish_rom(
+            built_rom,
+            seed,
+        )
+
+        print()
+        print(
+            f"Published ROM: {published_rom}"
+        )
+
+    return log_path
+
+
+# ============================================================
+# CLI HELPERS
+# ============================================================
+
+def parse_component_list(value):
+    if not value:
+        return []
+
+    return [
+        part.strip()
+        for part in value.split(",")
+        if part.strip()
+    ]
+
+
+# ============================================================
+# CLI
+# ============================================================
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=(
+            "pokeemerald-expansion "
+            "master randomizer"
+        )
+    )
+
+    parser.add_argument(
+        "seed",
+        nargs="?",
+        type=int,
+        help=(
+            "Optional seed. A random seed "
+            "is generated if omitted."
+        ),
+    )
+
+    parser.add_argument(
+        "--components",
+        default=None,
+        help=(
+            "Comma-separated components. "
+            "Example: starters,wild,trainers"
+        ),
+    )
+
+    parser.add_argument(
+        "--exclude",
+        default="",
+        help=(
+            "Comma-separated components "
+            "to exclude."
+        ),
+    )
+
+    parser.add_argument(
+        "--wild-mode",
+        choices=[
+            "mapping",
+            "full",
+        ],
+        default=None,
+        help=(
+            "Required when wild encounters "
+            "are selected."
+        ),
+    )
+
+    parser.add_argument(
+        "--trainer-mode",
+        choices=[
+            "mapping",
+            "full",
+        ],
+        default=None,
+        help=(
+            "Required when trainers "
+            "are selected."
+        ),
+    )
+
+    parser.add_argument(
+        "--build",
+        action="store_true",
+        help=(
+            "Run make clean and build "
+            "after randomization."
+        ),
+    )
+
+    args = parser.parse_args()
+
+    seed = (
+        args.seed
+        if args.seed is not None
+        else random.randrange(2**32)
+    )
+
+    if args.components is None:
+
+        selected = set(
+            COMPONENT_ORDER
+        )
+
+    else:
+
+        selected = set(
+            parse_component_list(
+                args.components
+            )
+        )
+
+    excluded = set(
+        parse_component_list(
+            args.exclude
+        )
+    )
+
+    selected -= excluded
+
+    if (
+        "wild" in selected
+        and args.wild_mode is None
+    ):
+
+        parser.error(
+            "Wild encounters are selected. "
+            "Specify --wild-mode mapping "
+            "or --wild-mode full."
+        )
+
+    if (
+        "trainers" in selected
+        and args.trainer_mode is None
+    ):
+
+        parser.error(
+            "Trainers are selected. "
+            "Specify --trainer-mode mapping "
+            "or --trainer-mode full."
+        )
+
+    try:
+
+        randomize(
+            seed,
+            selected,
+            wild_mode=args.wild_mode,
+            trainer_mode=args.trainer_mode,
+            do_build=args.build,
+        )
+
+    except Exception as exc:
+
+        print()
+        print("=" * 70)
+        print(
+            "MASTER RANDOMIZER FAILED"
+        )
+        print("=" * 70)
+
+        print()
+        print(exc)
+
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

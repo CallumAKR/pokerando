@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Assemble the standalone Windows release folder."""
+
+import shutil
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+DIST = ROOT / "dist"
+RELEASE = DIST / "PokemonEmeraldRandomizer"
+EXE = DIST / "Randomizer.exe"
+
+IGNORE_NAMES = {
+    ".git",
+    ".github",
+    "build",
+    "dist",
+    "output",
+    "__pycache__",
+    "downloads",
+}
+
+IGNORE_FILES = {
+    "pokeemerald.gba",
+    "pokeemerald.elf",
+    "pokeemerald.map",
+    "build_last.log",
+}
+
+IGNORE_SUFFIXES = {".sav", ".pyc"}
+
+
+def ignore_game_files(directory, names):
+    ignored = set()
+
+    for name in names:
+        path = Path(directory) / name
+
+        if name in IGNORE_NAMES or name in IGNORE_FILES:
+            ignored.add(name)
+        elif path.suffix.lower() in IGNORE_SUFFIXES:
+            ignored.add(name)
+
+    return ignored
+
+
+def main():
+    if not EXE.exists():
+        raise RuntimeError(
+            "Randomizer.exe is missing. Build it first with:\n"
+            "  py randomizer\\build_randomizer_exe.py"
+        )
+
+    required = (
+        ROOT / "randomizer" / "baseline",
+        ROOT / "randomizer" / "tools" / "windows" / "msys64",
+        ROOT / "randomizer" / "tools" / "windows" / "toolchain",
+    )
+
+    for path in required:
+        if not path.exists():
+            raise RuntimeError(f"Missing release dependency:\n{path}")
+
+    if RELEASE.exists():
+        shutil.rmtree(RELEASE)
+
+    RELEASE.mkdir(parents=True)
+
+    shutil.copy2(EXE, RELEASE / "Randomizer.exe")
+
+    print("Copying game source and randomizer runtime...")
+    shutil.copytree(
+        ROOT,
+        RELEASE / "game",
+        ignore=ignore_game_files,
+        dirs_exist_ok=True,
+    )
+
+    # The nested project's dist is ignored, but remove any accidental EXE/spec
+    # build products if they slipped into the game tree.
+    nested = RELEASE / "game"
+    for extra in (
+        nested / "Randomizer.spec",
+    ):
+        extra.unlink(missing_ok=True)
+
+    (RELEASE / "output").mkdir(exist_ok=True)
+
+    (RELEASE / "README.txt").write_text(
+        "Pokemon Emerald Randomizer\n"
+        "==========================\n\n"
+        "1. Double-click Randomizer.exe.\n"
+        "2. Choose your randomization options.\n"
+        "3. Click Randomize.\n"
+        "4. The finished ROM is written to the output folder.\n\n"
+        "No Python, WSL, Git, compiler installation, or terminal is required.\n",
+        encoding="utf-8",
+    )
+
+    print()
+    print(f"Release folder ready:\n{RELEASE}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:
+        print()
+        print("RELEASE PACKAGING FAILED")
+        print(exc)
+        sys.exit(1)

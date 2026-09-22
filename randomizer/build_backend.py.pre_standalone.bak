@@ -1,0 +1,466 @@
+#!/usr/bin/env python3
+"""
+ROM build backend.
+
+Development / WSL:
+    Uses the host GNU Make installation.
+
+Standalone Windows release:
+    Uses the packaged, isolated MSYS2 environment plus the packaged Arm GNU
+    Toolchain. The GUI captures all output, so no terminal window is required.
+"""
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+RANDOMIZER_DIR = ROOT / "randomizer"
+
+TOOLS_ROOT = RANDOMIZER_DIR / "tools" / "windows"
+MSYS_ROOT = TOOLS_ROOT / "msys64"
+MSYS_LAUNCHER = MSYS_ROOT / "msys2_shell.cmd"
+TOOLCHAIN_ROOT = TOOLS_ROOT / "toolchain"
+
+
+class BuildEnvironmentError(RuntimeError):
+    pass
+
+
+def no_console_kwargs():
+    if os.name != "nt":
+        return {}
+
+    return {
+        "creationflags": getattr(
+            subprocess,
+            "CREATE_NO_WINDOW",
+            0,
+        )
+    }
+
+
+def clean_windows_env():
+    """
+    Prevent an installed devkitPro/MSYS2/Cygwin environment from leaking into
+    the packaged build environment.
+    """
+
+    env = os.environ.copy()
+
+    for key in list(env):
+        upper = key.upper()
+
+        if (
+            upper.startswith("DEVKIT")
+            or upper.startswith("MSYS")
+            or upper.startswith("MINGW")
+            or upper == "CYGWIN"
+        ):
+            env.pop(
+                key,
+                None,
+            )
+
+    system_root = env.get(
+        "SystemRoot",
+        r"C:\Windows",
+    )
+
+    # Give cmd.exe / msys2_shell.cmd the Windows utilities they need, but do
+    # not preserve developer tool paths.
+    env["PATH"] = os.pathsep.join(
+        [
+            str(Path(system_root) / "System32"),
+            str(Path(system_root)),
+        ]
+    )
+
+    env["CHERE_INVOKING"] = "1"
+
+    return env
+
+
+def _stream_process(
+    command,
+    cwd,
+    env=None,
+):
+    print(
+        "$ "
+        + " ".join(
+            str(part)
+            for part in command
+        ),
+        flush=True,
+    )
+
+    process = subprocess.Popen(
+        [
+            str(part)
+            for part in command
+        ],
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        **no_console_kwargs(),
+    )
+
+    if process.stdout is not None:
+        for line in process.stdout:
+            print(
+                line,
+                end="",
+                flush=True,
+            )
+
+    return process.wait()
+
+
+def _capture_process(
+    command,
+    cwd,
+    env=None,
+):
+    """
+    Run a command and capture its output for Python-side validation.
+    """
+
+    result = subprocess.run(
+        [
+            str(part)
+            for part in command
+        ],
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        **no_console_kwargs(),
+    )
+
+    return (
+        result.returncode,
+        (result.stdout or "").strip(),
+    )
+
+
+def _to_msys_path(path):
+    """
+    Convert C:\\foo\\bar to /c/foo/bar.
+    """
+
+    path = Path(path).resolve()
+
+    drive = path.drive
+
+    if not drive:
+        return path.as_posix()
+
+    drive_letter = drive[0].lower()
+    remainder = path.as_posix()[2:]
+
+    return (
+        f"/{drive_letter}"
+        + remainder
+    )
+
+
+def _msys_command(command, where):
+    """
+    Build the native-Windows command used to invoke the packaged MSYS2 shell.
+    """
+
+    comspec = os.environ.get(
+        "ComSpec",
+        r"C:\Windows\System32\cmd.exe",
+    )
+
+    return [
+        comspec,
+        "/d",
+        "/c",
+        str(MSYS_LAUNCHER),
+        "-defterm",
+        "-no-start",
+        "-msys",
+        "-where",
+        str(where),
+        "-c",
+        command,
+    ]
+
+
+def _query_bundled_msys(command):
+    return _capture_process(
+        _msys_command(
+            command,
+            MSYS_ROOT,
+        ),
+        cwd=MSYS_ROOT,
+        env=clean_windows_env(),
+    )
+
+
+def _normalise_windows_path(value):
+    """
+    Compare paths case-insensitively and without depending on slash style.
+    """
+
+    return os.path.normcase(
+        os.path.normpath(
+            str(Path(value).resolve())
+        )
+    )
+
+
+def verify_bundled_msys():
+    """
+    Verify the packaged shell's filesystem root in Python.
+
+    The earlier implementation performed the comparison inside a shell command.
+    That was unnecessarily fragile because cmd.exe/MSYS quoting and Windows
+    slash/case formatting can make two equivalent paths compare as different.
+
+    The standalone checker already uses this Python-side approach.
+    """
+
+    if not MSYS_LAUNCHER.exists():
+        raise BuildEnvironmentError(
+            "Bundled MSYS2 launcher is missing:\n"
+            f"{MSYS_LAUNCHER}"
+        )
+
+    code, output = _query_bundled_msys(
+        "cygpath -w /"
+    )
+
+    if code != 0:
+        raise BuildEnvironmentError(
+            "Could not query the bundled MSYS2 root.\n\n"
+            + output
+        )
+
+    # Keep only the final non-empty line in case MSYS2 prints a harmless
+    # startup/status message before the requested path.
+    lines = [
+        line.strip()
+        for line in output.splitlines()
+        if line.strip()
+    ]
+
+    if not lines:
+        raise BuildEnvironmentError(
+            "Bundled MSYS2 returned no filesystem root."
+        )
+
+    actual_text = lines[-1]
+
+    actual = _normalise_windows_path(
+        actual_text
+    )
+
+    expected = _normalise_windows_path(
+        MSYS_ROOT
+    )
+
+    print(
+        f"Bundled MSYS2 root: {actual_text}"
+    )
+
+    if actual != expected:
+        raise BuildEnvironmentError(
+            "Bundled MSYS2 is using the wrong filesystem root.\n\n"
+            f"Expected:\n  {MSYS_ROOT.resolve()}\n\n"
+            f"Actual:\n  {actual_text}"
+        )
+
+    make_code, make_output = _query_bundled_msys(
+        "command -v make"
+    )
+
+    if (
+        make_code != 0
+        or not make_output.strip()
+    ):
+        raise BuildEnvironmentError(
+            "GNU Make is missing from the bundled MSYS2 environment."
+        )
+
+    print(
+        f"Bundled Make: {make_output.splitlines()[-1].strip()}"
+    )
+
+
+def bundled_windows_environment_available():
+    return (
+        os.name == "nt"
+        and MSYS_LAUNCHER.exists()
+        and (
+            TOOLCHAIN_ROOT
+            / "bin"
+            / "arm-none-eabi-gcc.exe"
+        ).exists()
+    )
+
+
+def describe_build_backend():
+    if bundled_windows_environment_available():
+        return "bundled-windows"
+
+    return "host"
+
+
+def _build_with_host():
+    make = (
+        shutil.which("make")
+        or shutil.which(
+            "mingw32-make"
+        )
+    )
+
+    if make is None:
+        raise BuildEnvironmentError(
+            "GNU Make was not found in the host environment."
+        )
+
+    print()
+    print("Build backend: host")
+    print(
+        f"Make executable: {make}"
+    )
+
+    code = _stream_process(
+        [
+            make,
+            "clean",
+        ],
+        cwd=ROOT,
+    )
+
+    if code != 0:
+        raise BuildEnvironmentError(
+            "make clean failed."
+        )
+
+    jobs = (
+        os.cpu_count()
+        or 1
+    )
+
+    code = _stream_process(
+        [
+            make,
+            f"-j{jobs}",
+        ],
+        cwd=ROOT,
+    )
+
+    if code != 0:
+        raise BuildEnvironmentError(
+            "ROM build failed."
+        )
+
+
+def _build_with_bundled_windows():
+    print()
+    print(
+        "Build backend: bundled Windows"
+    )
+
+    # Validate using the same robust method as the standalone tool checker.
+    verify_bundled_msys()
+
+    project = _to_msys_path(
+        ROOT
+    )
+
+    toolchain = _to_msys_path(
+        TOOLCHAIN_ROOT
+    )
+
+    jobs = (
+        os.cpu_count()
+        or 1
+    )
+
+    shell_command = (
+        "set -e; "
+
+        # Keep the normal MSYS2 PATH and prepend only the bundled ARM
+        # toolchain. Do not single-quote $PATH, otherwise the shell treats it
+        # literally and /usr/bin disappears (which hides cc, g++, make, etc.).
+        f"export PATH='{toolchain}/bin':\"$PATH\"; "
+
+        f"cd '{project}'; "
+        "printf 'ARM compiler: '; command -v arm-none-eabi-gcc; "
+        "printf 'Host C compiler: '; command -v cc; "
+        "printf 'Host C++ compiler: '; command -v g++; "
+        "printf 'pkg-config: '; command -v pkg-config; "
+        "printf 'make: '; command -v make; "
+        "printf 'git: '; command -v git; "
+        "make clean; "
+        f"make -j{jobs} "
+        f"TOOLCHAIN='{toolchain}'"
+    )
+
+    code = _stream_process(
+        _msys_command(
+            shell_command,
+            ROOT,
+        ),
+        cwd=ROOT,
+        env=clean_windows_env(),
+    )
+
+    if code != 0:
+        raise BuildEnvironmentError(
+            "Bundled Windows ROM build failed."
+        )
+
+
+def build_rom():
+    print()
+    print("=" * 70)
+    print(
+        "BUILDING ROM"
+    )
+    print("=" * 70)
+    print()
+
+    if bundled_windows_environment_available():
+        _build_with_bundled_windows()
+    else:
+        _build_with_host()
+
+    rom_path = (
+        ROOT
+        / "pokeemerald.gba"
+    )
+
+    if not rom_path.exists():
+        raise BuildEnvironmentError(
+            "Build completed but pokeemerald.gba was not produced."
+        )
+
+    print()
+    print(
+        f"ROM ready: {rom_path}"
+    )
+
+    return rom_path
+
+
+if __name__ == "__main__":
+    print(
+        "Selected backend:",
+        describe_build_backend(),
+    )
+
+    build_rom()

@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+import shutil
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = ROOT / "output"
+
+def safe_seed(seed):
+    return str(seed).replace("/", "_").replace("\\", "_")
+
+def publish_rom(source_rom, seed):
+    source_rom = Path(source_rom)
+    if not source_rom.exists():
+        raise RuntimeError(f"Cannot publish missing ROM:\n{source_rom}")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    destination = (
+        OUTPUT_DIR
+        / f"Pokemon Emerald Randomized - {safe_seed(seed)}.gba"
+    )
+
+    shutil.copy2(source_rom, destination)
+    return destination
