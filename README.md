@@ -1,53 +1,192 @@
-# About `pokeemerald-expansion`
+# PokéRando
 
-![Gif that shows debugging functionality that is unique to pokeemerald-expansion such as rerolling Trainer ID, Cheat Start, PC from Debug Menu, Debug PC Fill, Pokémon Sprite Visualizer, Debug Warp to Map, and Battle Debug Menu](https://github.com/user-attachments/assets/cf9dfbee-4c6b-4bca-8e0a-07f116ef891c) ![Gif that shows overworld functionality that is unique to pokeemerald-expansion such as indoor running, BW2 style map popups, overworld followers, DNA Splicers, Gen 1 style fishing, OW Item descriptions, Quick Run from Battle, Use Last Ball, Wild Double Battles, and Catch from EXP](https://github.com/user-attachments/assets/383af243-0904-4d41-bced-721492fbc48e) ![Gif that shows off a number of modern Pokémon battle mechanics happening in the pokeemerald-expansion engine: 2 vs 1 battles, modern Pokémon, items, moves, abilities, fully customizable opponents and partners, Trainer Slides, and generational gimmicks](https://github.com/user-attachments/assets/50c576bc-415e-4d66-a38f-ad712f3316be)
+[![Runtime randomisation](https://github.com/CallumAKR/pokerando/actions/workflows/runtime-randomisation.yml/badge.svg)](https://github.com/CallumAKR/pokerando/actions/workflows/runtime-randomisation.yml)
 
-<!-- If you want to re-record or change these gifs, here are some notes that I used: https://files.catbox.moe/05001g.md -->
+PokéRando is a graphical Pokémon Emerald randomiser built on
+[`pokeemerald-expansion`](https://github.com/rh-hideout/pokeemerald-expansion).
+It creates a playable GBA ROM containing the options selected in the GUI.
 
-**`pokeemerald-expansion`** is a GBA ROM hack base that equips developers with a comprehensive toolkit for creating Pokémon ROM hacks. **`pokeemerald-expansion`** is built on top of [pret's `pokeemerald`](https://github.com/pret/pokeemerald) decompilation project. **It is not a playable Pokémon game on its own.**
+Unlike a traditional randomiser, most selected systems are not permanently
+rolled while the ROM is being built. The GUI choices become rules inside the
+ROM, and **each New Game creates a different randomised world**. That world then
+remains consistent for the life of that save.
 
-# [Features](FEATURES.md)
+> [!IMPORTANT]
+> This repository does not distribute a prebuilt Pokémon ROM. The project is
+> intended for personal use with legally obtained game material. You are
+> responsible for following the laws that apply where you live.
 
-**`pokeemerald-expansion`** offers hundreds of features from various [core series Pokémon games](https://bulbapedia.bulbagarden.net/wiki/Core_series), along with popular quality-of-life enhancements designed to streamline development and improve the player experience. A full list of those features can be found in [`FEATURES.md`](FEATURES.md).
+## How runtime randomisation works
 
-# [Credits](CREDITS.md)
+The GUI seed defines the ROM's randomisation identity. When a New Game is
+started, the ROM combines that identity with the new save's identity to create
+its randomised world.
 
- [![](https://img.shields.io/github/all-contributors/rh-hideout/pokeemerald-expansion/upcoming)](CREDITS.md)
+- Starting another New Game on the same ROM produces a new result.
+- A save's starters, encounters, mappings and other rolls stay stable after
+  they have been generated.
+- The restrictions chosen in the GUI—such as similar BST, preserving special
+  Pokémon status or using a particular mapping mode—are enforced on every new
+  save made with that ROM.
+- Changing the ROM's enabled options still requires building another ROM.
 
-If you use **`pokeemerald-expansion`**, please credit **RHH (Rom Hacking Hideout)**. Optionally, include the version number for clarity.
+For example, one save might encounter a Charmander with Sap Sipper while a new
+save made from the same ROM might give Charmander Vessel of Ruin instead.
 
+## Quick start: packaged Windows version
+
+The packaged Windows version contains its own build tools. Python, Git, WSL,
+MSYS2 and devkitARM do not need to be installed.
+
+1. Extract the entire `PokemonEmeraldRandomizer` folder. Do not run the program
+   from inside the ZIP file.
+2. Double-click `Randomizer.exe`.
+3. Enter a seed or click **Random Seed**.
+4. Select the randomisation, game and difficulty options you want.
+5. Leave **Enable ROM build after randomisation** selected.
+6. Click **RANDOMISE** and wait for the build to finish.
+7. Find the finished ROM in `output\` as
+   `Pokemon Emerald Randomized - <seed>.gba`.
+
+The output panel shows progress and the location of the full build log. A clean
+rebuild is normally unnecessary; use it only when troubleshooting an
+incremental build.
+
+## What can be randomised?
+
+### Pokémon data
+
+- Types
+- Base stats, either preserving total BST, using evolution-stage ranges or
+  using the full configured range
+- Abilities
+- Evolution targets
+- Level-up moves and move types
+- TM, HM and move-tutor compatibility
+- Evolution-required moves for the move relearner
+
+Species- or form-dependent abilities that cannot work correctly on arbitrary
+Pokémon are excluded from the random pool. Z-Moves, Max Moves and G-Max Moves
+are also excluded from ordinary learnsets. Supported formerly species-locked
+moves such as Hyperspace Fury can be used by any Pokémon that receives them.
+
+### Encounters and gifts
+
+- Starters, with optional three-stage lines and rival continuity
+- Wild encounters
+- Trainer parties
+- Static and legendary encounters
+- Fossil revivals
+- Gift Eggs
+- NPC trades
+- Field items and eligible NPC gifts
+
+Item randomisation turns berry trees and empty berry plots into item balls.
+Progression items and Z-Crystals are excluded, and Mom's optional 99 Ultra
+Balls are never randomised.
+
+### Mapping and restriction modes
+
+- **One-to-one mapping:** an original species has one consistent replacement.
+- **Encounter slots:** every encounter-table slot receives its own replacement.
+- **Route-local mapping:** repeated species match within a route and encounter
+  method, but may map differently elsewhere.
+- **Fully random trainers/statics:** individual Pokémon can be replaced
+  independently.
+- **Similar BST:** restricts wild or trainer replacements to the configured BST
+  tolerance.
+- **Special status rules:** either preserve Legendary, Mythical, Ultra Beast
+  and Paradox-style status or allow the full eligible pool.
+- **Type themes:** gives each Hoenn Gym and Elite Four member a randomised type
+  theme.
+
+## Optional game features
+
+The GUI also includes independent gameplay and quality-of-life options:
+
+- Permanent Mega Evolutions that retain their Mega species, sprite, stats,
+  type and ability while holding a different item
+- Permanent Mega aces for later bosses
+- Hard badge/story level caps and a reusable **Level to cap** party action
+- Wild Pokémon clamped to the current level cap when caps are enabled
+- Trade-evolution replacements and regional evolution postcards
+- HM field actions without teaching the moves, with optional progression
+  bypasses
+- Perma Repel, Party Restorer, Time Turner and Weather Setter tools
+- Guaranteed captures, forced shinies and permanent-death rules
+- Mom's Running Shoes bonus of 99 Ultra Balls and maximum money
+- Expanded Bag capacity
+- Mirage Island and event-island access options
+- Lilycove catalogues for TMs, evolution items, regional postcards and Mega
+  Stones
+
+Difficulty options include smarter trainer AI, level increases, evolution-stage
+rules, scaled or perfect IVs, competitive EVs and natures, improved movesets,
+held items, healing items, forced Set mode and disabling the Bag in trainer
+battles.
+
+## Manual customisation
+
+The **Manual Customisation** tab can protect or configure individual Pokémon
+instead of applying every global randomisation rule to them. Manual starter
+selection is also available. These choices are compiled into the generated ROM
+alongside the global options.
+
+## Running from source
+
+For development, clone the repository and install the normal
+`pokeemerald-expansion` build dependencies for your operating system. The
+upstream instructions are retained in [`INSTALL.md`](INSTALL.md); Linux or WSL2
+is the recommended source-build environment.
+
+```bash
+git clone https://github.com/CallumAKR/pokerando.git
+cd pokerando
+python3 randomizer/gui.py
 ```
-Based off RHH's pokeemerald-expansion 1.16.3 https://github.com/rh-hideout/pokeemerald-expansion/
+
+The GUI uses Tkinter. On distributions that package it separately, install the
+appropriate `python3-tk` package. Source checkouts use the host build tools;
+packaged Windows releases instead use their bundled toolchain.
+
+An advanced command-line interface is also available:
+
+```bash
+python3 randomizer/master_randomizer.py --help
 ```
 
-Please consider [crediting all contributors](CREDITS.md) involved in the project!
+## Troubleshooting
 
-# Choosing `pokeemerald` or **`pokeemerald-expansion`**
+- **The build prints an RWX permissions warning:** this linker warning is
+  expected for this GBA project and does not mean the build failed.
+- **The memory table looks high:** EWRAM, IWRAM and ROM are the Game Boy
+  Advance's memory regions, not your computer's RAM. A build fails if one of
+  those fixed limits is exceeded.
+- **A build fails after source changes:** try the GUI's clean rebuild option
+  once, then read the first actual error above the final Python traceback.
+- **A JSON file becomes truncated in a cloud-synchronised folder:** restore the
+  file with Git or move the project to a normal local folder before rebuilding.
+- **A new game does not use new settings:** GUI settings are compiled into the
+  ROM. Rebuild the ROM after changing them, then start a New Game.
 
-- **`pokeemerald-expansion`** supports multiplayer functionality with other games built on **`pokeemerald-expansion`**. It is not compatible with official Pokémon games.
-- If compatibility with official games is important, use [`pokeemerald`](https://github.com/pret/pokeemerald). Otherwise, we recommend using **`pokeemerald-expansion`**.
-- **`pokeemerald-expansion`** incorporates regular updates from `pokeemerald`, including bug fixes and documentation improvements.
+When reporting a problem, include the selected options, seed and the relevant
+part of `build_last.log`. Do not upload copyrighted ROM files.
 
-# [Getting Started](INSTALL.md)
+## Testing
 
-❗❗ **Important**: Do not use GitHub's "Download Zip" option as it will not include commit history. This is necessary if you want to update or merge other feature branches.
+The runtime-randomisation workflow runs focused Python regression tests and
+compiles the changed runtime sources through the project's ARM preprocessing
+pipeline. It also checks the GBA save-block size limits used by features such
+as the expanded Bag.
 
-If you're new to git and GitHub, [Team Aqua's Asset Repo](https://github.com/Pawkkie/Team-Aquas-Asset-Repo/) has a [guide to forking and cloning the repository](https://github.com/Pawkkie/Team-Aquas-Asset-Repo/wiki/The-Basics-of-GitHub). Then you can follow one of the following guides:
+## Credits
 
-## 📥 [Installing **`pokeemerald-expansion`**](INSTALL.md)
-## 🏗️ [Building **`pokeemerald-expansion`**](INSTALL.md#Building-pokeemerald-expansion)
-## 🚚 [Migrating from **`pokeemerald`**](INSTALL.md#Migrating-from-pokeemerald)
-## 🚀 [Updating **`pokeemerald-expansion`**](INSTALL.md#Updating-pokeemerald-expansion)
+PokéRando is based on **RHH's pokeemerald-expansion 1.16.3**, itself built on
+[pret's `pokeemerald`](https://github.com/pret/pokeemerald) decompilation.
 
-# [Documentation](https://rh-hideout.github.io/pokeemerald-expansion/)
+Please retain credit for the original projects and their contributors. See
+[`CREDITS.md`](CREDITS.md) for the full inherited credits.
 
-For detailed documentation, visit the [pokeemerald-expansion documentation page](https://rh-hideout.github.io/pokeemerald-expansion/).
-
-# [Contributions](CONTRIBUTING.md)
-If you are looking to [report a bug](CONTRIBUTING.md#Bug-Report), [open a pull request](CONTRIBUTING.md#Pull-Requests), or [request a feature](CONTRIBUTING.md#Feature-Request), our [`CONTRIBUTING.md`](CONTRIBUTING.md) has guides for each.
-
-# [Community](https://discord.gg/6CzjAG6GZk)
-
-[![](https://dcbadge.limes.pink/api/server/6CzjAG6GZk)](https://discord.gg/6CzjAG6GZk)
-
-Our community uses the [ROM Hacking Hideout (RHH) Discord server](https://discord.gg/6CzjAG6GZk) to communicate and organize. Most of our discussions take place there, and we welcome anybody to join us!
+Pokémon and all related names are trademarks of Nintendo, Game Freak and The
+Pokémon Company. This is an unofficial fan project and is not affiliated with
+or endorsed by them.
