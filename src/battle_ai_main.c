@@ -2957,14 +2957,7 @@ static s32 AI_CheckBadMove(enum BattlerId battlerAtk, enum BattlerId battlerDef,
         if (DoesPartnerHaveSameMoveEffect(GetPartnerBattler(battlerAtk), battlerDef, move, aiData->partnerMove))
             ADJUST_SCORE(-10);
         break;
-    case EFFECT_DARK_VOID:
-        if (B_DARK_VOID_FAIL >= GEN_7 && gBattleMons[battlerAtk].species != SPECIES_DARKRAI)
-            ADJUST_SCORE(-10);
-        break;
-    case EFFECT_HYPERSPACE_FURY:
-        if (gBattleMons[battlerAtk].species != SPECIES_HOOPA_UNBOUND)
-            ADJUST_SCORE(-10);
-        break;
+    // RANDOMIZER: signature moves are viable for any species.
     case EFFECT_PLACEHOLDER:
         return 0;   // cannot even select
     } // move effect checks

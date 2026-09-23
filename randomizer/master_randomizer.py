@@ -62,6 +62,10 @@ from game_options import (
     apply_game_options,
 )
 from signature_move_compatibility import ensure_signature_moves_usable
+from runtime_randomizer_config import (
+    RUNTIME_IMPLEMENTED_COMPONENTS,
+    configure_runtime_randomizer,
+)
 
 from difficulty_options import (
     apply_trainer_difficulty,
@@ -870,6 +874,7 @@ def randomize(
     wild_allow_special=False,
     wild_similar_bst=False,
     static_mode=None,
+    fossil_only_replacements=False,
     trainer_mode=None,
     trainer_allow_special=False,
     trainer_similar_bst=False,
@@ -885,6 +890,7 @@ def randomize(
     add_regional_postcards=False,
     add_mega_stones=False,
     include_game_corner=False,
+    enable_all_fossils=False,
     game_permadeath=False,
     # Compatibility alias for the first Game Options build. It enables all
     # three optional received items.
@@ -914,6 +920,7 @@ def randomize(
     difficulty_force_set=False,
     difficulty_disable_bag=False,
     starter_three_stage_base=False,
+    rival_starter_continuity=False,
     manual_starters=None,
     manual_customizations=None,
 ):
@@ -1382,6 +1389,27 @@ def randomize(
 
     restore_clean_map_randomizer_data()
 
+    configure_runtime_randomizer(
+        seed=seed,
+        selected_components=selected_components,
+        pokemon_bst_mode=pokemon_bst_mode,
+        starter_three_stage_base=starter_three_stage_base,
+        wild_allow_special=wild_allow_special,
+        wild_similar_bst=wild_similar_bst,
+        wild_mode=wild_mode,
+        static_mode=static_mode,
+        enable_all_fossils=enable_all_fossils,
+        fossil_only_replacements=fossil_only_replacements,
+        trainer_allow_special=trainer_allow_special,
+        trainer_similar_bst=trainer_similar_bst,
+        trainer_mode=trainer_mode,
+        trainer_type_themes=trainer_type_themes,
+        rival_starter_continuity=rival_starter_continuity,
+        move_species_specific=move_species_specific,
+        move_same_type_bias=move_same_type_bias,
+        manual_customizations=manual_customizations,
+    )
+
     # --------------------------------------------------------
     # RESTORE PROTECTED POKÉMON
     # --------------------------------------------------------
@@ -1592,6 +1620,20 @@ def randomize(
     for component in COMPONENT_ORDER:
         globally_selected = component in selected_components
 
+        if globally_selected and component in RUNTIME_IMPLEMENTED_COMPONENTS:
+            print(
+                "  Runtime-configured "
+                + COMPONENT_LABELS[component]
+            )
+
+            if component == "pokemon_types":
+                apply_manual_fields(manual_customizations, "types")
+            elif component == "pokemon_bst":
+                apply_manual_fields(manual_customizations, "stats")
+            elif component == "abilities":
+                apply_manual_fields(manual_customizations, "abilities")
+            continue
+
         if component == "pokemon_types":
             explicit = explicitly_enabled_species(
                 manual_customizations,
@@ -1745,7 +1787,8 @@ def randomize(
     # state now. Apply continuity before the difficulty pass so the rival's
     # IVs, EVs, nature, moveset, ability and held item are all generated for
     # the actual continuous starter rather than the original Emerald starter.
-    apply_rival_starter_continuity()
+    if not rival_starter_continuity:
+        apply_rival_starter_continuity()
 
     rival_party_count = set_rival_difficulty_class("Leader")
     print(

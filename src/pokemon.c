@@ -1,5 +1,6 @@
 #include "global.h"
 #include "randomizer_game_options.h"
+#include "runtime_randomizer.h"
 #include "malloc.h"
 #include "apprentice.h"
 #include "battle.h"
@@ -1322,6 +1323,8 @@ void CreateEnemyEventMon(void)
     s32 level = gSpecialVar_0x8005;
     s32 itemId = gSpecialVar_0x8006;
 
+    species = RuntimeRandomizerStaticSpecies(0, 0, species);
+
     ZeroEnemyPartyMons();
 
     CreateEventMon(&gParties[B_TRAINER_OPPONENT_A][0], species, level, Random32(), OTID_STRUCT_PLAYER_ID);
@@ -2461,8 +2464,9 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
                 }
                 else if (substruct0->teraType == TYPE_NONE) // Tera Type hasn't been modified so we can just use the personality
                 {
-                    const enum Type *types = gSpeciesInfo[substruct0->species].types;
-                    retVal = (boxMon->personality & 0x1) == 0 ? types[0] : types[1];
+                    u32 typeSlot = boxMon->personality & 0x1;
+
+                    retVal = GetSpeciesType(substruct0->species, typeSlot);
                 }
                 else
                 {
@@ -3292,42 +3296,50 @@ u32 GetSpeciesWeight(enum Species species)
 
 enum Type GetSpeciesType(enum Species species, u8 slot)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].types[slot];
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesType(species, slot, gSpeciesInfo[species].types[slot]);
 }
 
 enum Ability GetSpeciesAbility(enum Species species, u8 slot)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].abilities[slot];
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesAbility(species, slot, gSpeciesInfo[species].abilities[slot]);
 }
 
 u32 GetSpeciesBaseHP(enum Species species)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].baseHP;
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesStat(species, STAT_HP, gSpeciesInfo[species].baseHP);
 }
 
 u32 GetSpeciesBaseAttack(enum Species species)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].baseAttack;
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesStat(species, STAT_ATK, gSpeciesInfo[species].baseAttack);
 }
 
 u32 GetSpeciesBaseDefense(enum Species species)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].baseDefense;
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesStat(species, STAT_DEF, gSpeciesInfo[species].baseDefense);
 }
 
 u32 GetSpeciesBaseSpAttack(enum Species species)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].baseSpAttack;
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesStat(species, STAT_SPATK, gSpeciesInfo[species].baseSpAttack);
 }
 
 u32 GetSpeciesBaseSpDefense(enum Species species)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].baseSpDefense;
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesStat(species, STAT_SPDEF, gSpeciesInfo[species].baseSpDefense);
 }
 
 u32 GetSpeciesBaseSpeed(enum Species species)
 {
-    return gSpeciesInfo[SanitizeSpeciesId(species)].baseSpeed;
+    species = SanitizeSpeciesId(species);
+    return RuntimeRandomizerSpeciesStat(species, STAT_SPEED, gSpeciesInfo[species].baseSpeed);
 }
 
 u32 GetSpeciesBaseStat(enum Species species, u32 statIndex)
@@ -3362,18 +3374,20 @@ u32 GetSpeciesBaseStatTotal(enum Species species)
 
 const struct LevelUpMove *GetSpeciesLevelUpLearnset(enum Species species)
 {
-    const struct LevelUpMove *learnset = gSpeciesInfo[SanitizeSpeciesId(species)].levelUpLearnset;
+    species = SanitizeSpeciesId(species);
+    const struct LevelUpMove *learnset = gSpeciesInfo[species].levelUpLearnset;
     if (learnset == NULL)
         return gSpeciesInfo[SPECIES_NONE].levelUpLearnset;
-    return learnset;
+    return RuntimeRandomizerLevelUpLearnset(species, learnset);
 }
 
 const u16 *GetSpeciesTeachableLearnset(enum Species species)
 {
-    const u16 *learnset = gSpeciesInfo[SanitizeSpeciesId(species)].teachableLearnset;
+    species = SanitizeSpeciesId(species);
+    const u16 *learnset = gSpeciesInfo[species].teachableLearnset;
     if (learnset == NULL)
         return gSpeciesInfo[SPECIES_NONE].teachableLearnset;
-    return learnset;
+    return RuntimeRandomizerTeachableLearnset(species, learnset);
 }
 
 const u16 *GetSpeciesEggMoves(enum Species species)
@@ -3386,10 +3400,11 @@ const u16 *GetSpeciesEggMoves(enum Species species)
 
 const struct Evolution *GetSpeciesEvolutions(enum Species species)
 {
-    const struct Evolution *evolutions = gSpeciesInfo[SanitizeSpeciesId(species)].evolutions;
+    species = SanitizeSpeciesId(species);
+    const struct Evolution *evolutions = gSpeciesInfo[species].evolutions;
     if (evolutions == NULL)
         return gSpeciesInfo[SPECIES_NONE].evolutions;
-    return evolutions;
+    return RuntimeRandomizerEvolutions(species, evolutions);
 }
 
 const u16 *GetSpeciesFormTable(enum Species species)
@@ -6853,8 +6868,10 @@ bool32 IsSpeciesForeignRegionalForm(enum Species species, u32 currentRegion)
 
 enum Type GetTeraTypeFromPersonality(struct Pokemon *mon)
 {
-    const u8 *types = gSpeciesInfo[GetMonData(mon, MON_DATA_SPECIES)].types;
-    return (GetMonData(mon, MON_DATA_PERSONALITY) & 0x1) == 0 ? types[0] : types[1];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    u32 typeSlot = GetMonData(mon, MON_DATA_PERSONALITY) & 0x1;
+
+    return GetSpeciesType(species, typeSlot);
 }
 
 struct Pokemon *GetSavedPlayerPartyMon(u32 index)
@@ -6874,8 +6891,8 @@ void SavePlayerPartyMon(u32 index, struct Pokemon *mon)
 
 bool32 IsSpeciesOfType(enum Species species, enum Type type)
 {
-    if (gSpeciesInfo[species].types[0] == type
-     || gSpeciesInfo[species].types[1] == type)
+    if (GetSpeciesType(species, 0) == type
+     || GetSpeciesType(species, 1) == type)
         return TRUE;
     return FALSE;
 }

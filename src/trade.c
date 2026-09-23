@@ -1,4 +1,5 @@
 #include "global.h"
+#include "runtime_randomizer.h"
 #include "malloc.h"
 #include "battle_anim.h"
 #include "battle_interface.h"
@@ -308,7 +309,7 @@ static void SpriteCB_BouncingPokeballDepart(struct Sprite *);
 static void SpriteCB_BouncingPokeballDepartEnd(struct Sprite *);
 static void SpriteCB_BouncingPokeballArrive(struct Sprite *);
 static void BufferInGameTradeMonName(void);
-static void GetInGameTradeMail(struct Mail *, const struct InGameTrade *);
+static void GetInGameTradeMail(struct Mail *, const struct InGameTrade *, u8);
 static void CB2_UpdateLinkTrade(void);
 static void CB2_WaitTradeComplete(void);
 static void CB2_SaveAndEndTrade(void);
@@ -321,6 +322,28 @@ static void Task_CloseCenterWhiteColumn(u8);
 static void CB2_SaveAndEndWirelessTrade(void);
 
 #include "data/trade.h"
+
+static enum Species GetRuntimeTradeRequestedSpecies(u8 tradeId)
+{
+    return RuntimeRandomizerTradeSpecies(
+        tradeId, FALSE, sIngameTrades[tradeId].requestedSpecies);
+}
+
+static enum Species GetRuntimeTradeOfferedSpecies(u8 tradeId)
+{
+    enum Species requestedSpecies = GetRuntimeTradeRequestedSpecies(tradeId);
+    enum Species species = RuntimeRandomizerTradeSpecies(
+        tradeId, TRUE, sIngameTrades[tradeId].species);
+    u32 attempt;
+
+    for (attempt = 1; species == requestedSpecies && attempt < NUM_SPECIES; attempt++)
+    {
+        species = RuntimeRandomizerSpecies(
+            RUNTIME_DOMAIN_TRADE_SPECIES, tradeId, attempt + 1,
+            sIngameTrades[tradeId].species, FALSE, FALSE);
+    }
+    return species;
+}
 
 static bool8 SendLinkData(const void *linkData, u32 size)
 {
@@ -4544,19 +4567,21 @@ static void SpriteCB_BouncingPokeballArrive(struct Sprite *sprite)
 
 u16 GetInGameTradeSpeciesInfo(void)
 {
-    const struct InGameTrade *inGameTrade = &sIngameTrades[gSpecialVar_0x8005];
-    StringCopy(gStringVar1, GetSpeciesName(inGameTrade->requestedSpecies));
-    StringCopy(gStringVar2, GetSpeciesName(inGameTrade->species));
-    return inGameTrade->requestedSpecies;
+    enum Species requestedSpecies = GetRuntimeTradeRequestedSpecies(gSpecialVar_0x8005);
+    enum Species offeredSpecies = GetRuntimeTradeOfferedSpecies(gSpecialVar_0x8005);
+
+    StringCopy(gStringVar1, GetSpeciesName(requestedSpecies));
+    StringCopy(gStringVar2, GetSpeciesName(offeredSpecies));
+    return requestedSpecies;
 }
 
 static void BufferInGameTradeMonName(void)
 {
     u8 nickname[max(32, POKEMON_NAME_BUFFER_SIZE)];
-    const struct InGameTrade *inGameTrade = &sIngameTrades[gSpecialVar_0x8005];
     GetMonData(&gParties[B_TRAINER_PLAYER][gSpecialVar_0x8005], MON_DATA_NICKNAME, nickname);
     StringCopy_Nickname(gStringVar1, nickname);
-    StringCopy(gStringVar2, GetSpeciesName(inGameTrade->species));
+    StringCopy(gStringVar2, GetSpeciesName(
+        GetRuntimeTradeOfferedSpecies(gSpecialVar_0x8005)));
 }
 
 static void CreateInGameTradePokemonInternal(u8 whichPlayerMon, u8 whichInGameTrade)
@@ -4570,7 +4595,8 @@ static void CreateInGameTradePokemonInternal(u8 whichPlayerMon, u8 whichInGameTr
     u8 mailNum;
     struct Pokemon *pokemon = &gParties[B_TRAINER_OPPONENT_A][0];
 
-    CreateMon(pokemon, inGameTrade->species, level, inGameTrade->personality, OTID_STRUCT_PRESET(inGameTrade->otId));
+    CreateMon(pokemon, GetRuntimeTradeOfferedSpecies(whichInGameTrade), level,
+              inGameTrade->personality, OTID_STRUCT_PRESET(inGameTrade->otId));
     GiveMonInitialMoveset(pokemon);
 
     SetMonData(pokemon, MON_DATA_HP_IV, &inGameTrade->ivs[0]);
@@ -4596,7 +4622,7 @@ static void CreateInGameTradePokemonInternal(u8 whichPlayerMon, u8 whichInGameTr
     {
         if (ItemIsMail(inGameTrade->heldItem))
         {
-            GetInGameTradeMail(&mail, inGameTrade);
+            GetInGameTradeMail(&mail, inGameTrade, whichInGameTrade);
             gTradeMail[0] = mail;
             SetMonData(pokemon, MON_DATA_MAIL, &mailNum);
             SetMonData(pokemon, MON_DATA_HELD_ITEM, &inGameTrade->heldItem);
@@ -4609,7 +4635,7 @@ static void CreateInGameTradePokemonInternal(u8 whichPlayerMon, u8 whichInGameTr
     CalculateMonStats(&gParties[B_TRAINER_OPPONENT_A][0]);
 }
 
-static void GetInGameTradeMail(struct Mail *mail, const struct InGameTrade *trade)
+static void GetInGameTradeMail(struct Mail *mail, const struct InGameTrade *trade, u8 tradeId)
 {
     s32 i;
 
@@ -4623,7 +4649,7 @@ static void GetInGameTradeMail(struct Mail *mail, const struct InGameTrade *trad
     mail->trainerId[1] = trade->otId >> 16;
     mail->trainerId[2] = trade->otId >> 8;
     mail->trainerId[3] = trade->otId;
-    mail->species = trade->species;
+    mail->species = GetRuntimeTradeOfferedSpecies(tradeId);
     mail->itemId = trade->heldItem;
 }
 
