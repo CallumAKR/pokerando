@@ -143,6 +143,11 @@ Running PokéRando directly from source requires:
 - **The pokeemerald-expansion build toolchain.** On native Windows, the
   simplest supported setup is **devkitPro with devkitARM**, including the
   MSYS2 tools supplied by devkitPro. GNU Make must be available on `PATH`.
+  PokéRando also builds native helper programs, so the devkitPro MSYS2
+  environment must include its host GCC toolchain (`cc`, `gcc` and `g++`).
+  From the devkitPro MSYS2 terminal, update the package database/system with
+  `pacman -Syu` (reopen the terminal and repeat if instructed), then install
+  GCC with `pacman -S gcc`.
 - On Linux or WSL2, install the normal `pokeemerald-expansion` build
   dependencies instead.
 
