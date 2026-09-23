@@ -192,6 +192,50 @@ class RuntimeRandomizerTests(unittest.TestCase):
             source,
         )
 
+    def test_z_max_moves_and_z_crystals_are_not_runtime_candidates(self):
+        source = (ROOT / "src/runtime_randomizer.c").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn(
+            "move >= FIRST_Z_MOVE && move <= LAST_MAX_MOVE",
+            source,
+        )
+        self.assertIn(
+            "gItemsInfo[item].sortType == ITEM_TYPE_Z_CRYSTAL",
+            source,
+        )
+
+    def test_build_time_pools_exclude_special_battle_moves_and_z_items(self):
+        moves = (ROOT / "randomizer/randomize_moves.py").read_text(
+            encoding="utf-8"
+        )
+        items = (ROOT / "randomizer/randomize_items.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("// Z Moves(?P<body>.*?)MOVES_COUNT_DYNAMAX", moves)
+        self.assertIn('"ITEM_TYPE_Z_CRYSTAL" in info["block"]', items)
+        self.assertIn("resolve_item_alias(item)", items)
+        self.assertIn("ITEM_CONSTANTS_FILE", items)
+
+    def test_wild_levels_are_clamped_to_the_active_level_cap(self):
+        source = (ROOT / "src/wild_encounter.c").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("ClampWildLevelToCurrentCap", source)
+        self.assertIn("GetCurrentLevelCap()", source)
+        self.assertIn(
+            "ClampWildLevelToCurrentCap(gSaveBlock1Ptr->outbreakPokemonLevel)",
+            source,
+        )
+        self.assertRegex(
+            source,
+            r"void CreateWildMon\(enum Species species, u8 level\)\n"
+            r"\{\n\s*level = ClampWildLevelToCurrentCap\(level\);",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

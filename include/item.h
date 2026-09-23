@@ -212,6 +212,8 @@ static inline enum Item BerryTypeToItemId(enum BerryId berryId)
 
 void BagPocket_SetSlotData(struct BagPocket *pocket, u32 pocketPos, struct ItemSlot newSlot);
 struct ItemSlot BagPocket_GetSlotData(struct BagPocket *pocket, u32 pocketPos);
+void MigrateBagSaveData(void);
+void GiveMomBonusUltraBalls(void);
 
 static inline void BagPocket_SetSlotItemIdAndCount(struct BagPocket *pocket, u32 pocketPos, enum Item itemId, u16 quantity)
 {

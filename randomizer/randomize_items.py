@@ -12,6 +12,7 @@ from fossil_options import CONFIG_FILE, FOSSILS
 ROOT = Path(__file__).resolve().parent.parent
 
 ITEMS_FILE = ROOT / "src/data/items.h"
+ITEM_CONSTANTS_FILE = ROOT / "include/constants/items.h"
 MAPS_DIR = ROOT / "data/maps"
 SCRIPTS_DIR = ROOT / "data/scripts"
 
@@ -107,6 +108,24 @@ for index, match in enumerate(item_headers):
         "block": block,
     }
 
+# Map legacy/source aliases (for example ITEM_X_DEFEND) to the canonical item
+# definition used by src/data/items.h.  Without this, aliased map pickups look
+# undefined and are incorrectly protected from randomisation.
+item_aliases = dict(
+    re.findall(
+        r"\b(ITEM_[A-Z0-9_]+)\s*=\s*(ITEM_[A-Z0-9_]+)\b",
+        ITEM_CONSTANTS_FILE.read_text(encoding="utf-8"),
+    )
+)
+
+
+def resolve_item_alias(item):
+    seen = set()
+    while item in item_aliases and item not in seen:
+        seen.add(item)
+        item = item_aliases[item]
+    return item
+
 print(
     f"Found {len(item_info)} "
     f"defined items."
@@ -163,12 +182,17 @@ def is_blacklisted(item):
     # KEY ITEMS
     # -------------------------
 
-    info = item_info.get(item)
+    info = item_info.get(resolve_item_alias(item))
 
     if info is None:
         return True
 
     if info["pocket"] == "POCKET_KEY_ITEMS":
+        return True
+
+    # Z-Crystals only work through the Z-Move battle mechanic and should not
+    # consume random pickup/reward slots in an ordinary playthrough.
+    if "ITEM_TYPE_Z_CRYSTAL" in info["block"]:
         return True
 
     # An item with no detected pocket is suspicious,

@@ -1085,7 +1085,7 @@ def _configure_mom_running_shoes_bonus(enabled):
         gift = (
             bonus_start
             + "\tmsgbox LittlerootTown_Text_MomBonusBalls, MSGBOX_DEFAULT\n"
-            + "\tgiveitem ITEM_ULTRA_BALL, 99\n"
+            + "\tcallnative GiveMomBonusUltraBalls, requests_effects=1\n"
             + "\taddmoney 999999\n"
             + "\tmsgbox LittlerootTown_Text_MomBonusMoney, MSGBOX_DEFAULT\n"
             + bonus_end

@@ -900,7 +900,7 @@ LittlerootTown_EventScript_GiveRunningShoes::
 	setflag FLAG_RECEIVED_RUNNING_SHOES
 	@ RANDOMIZER MOM BONUS START
 	msgbox LittlerootTown_Text_MomBonusBalls, MSGBOX_DEFAULT
-	giveitem ITEM_ULTRA_BALL, 99
+	callnative GiveMomBonusUltraBalls, requests_effects=1
 	addmoney 999999
 	msgbox LittlerootTown_Text_MomBonusMoney, MSGBOX_DEFAULT
 	@ RANDOMIZER MOM BONUS END

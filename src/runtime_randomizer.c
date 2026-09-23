@@ -877,6 +877,8 @@ static bool32 IsRuntimeItemCandidate(enum Item item)
         return FALSE;
     if (gItemsInfo[item].importance || gItemsInfo[item].pocket == POCKET_KEY_ITEMS)
         return FALSE;
+    if (gItemsInfo[item].sortType == ITEM_TYPE_Z_CRYSTAL)
+        return FALSE;
     if (!RANDOMIZER_RUNTIME_ALL_FOSSILS
      && gItemsInfo[item].sortType == ITEM_TYPE_FOSSIL)
         return FALSE;
@@ -1044,6 +1046,9 @@ static enum Ability GetRuntimeAbilityForSlot(enum Species familyKey, u32 slot)
 
 static bool32 IsBannedRandomMove(enum Move move)
 {
+    if (move >= FIRST_Z_MOVE && move <= LAST_MAX_MOVE)
+        return TRUE;
+
     switch (move)
     {
     case MOVE_NONE:
