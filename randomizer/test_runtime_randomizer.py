@@ -163,6 +163,23 @@ class RuntimeRandomizerTests(unittest.TestCase):
         self.assertIn("RANDOMIZER_RUNTIME_ROM_SALT", source)
         self.assertNotIn("Random() % (NUM_SPECIES", source)
 
+    def test_permanent_trainer_megas_reroll_only_to_valid_megas(self):
+        source = (ROOT / "src/runtime_randomizer.c").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("GetRuntimeTrainerMegaSpecies", source)
+        self.assertIn("gSpeciesInfo[candidate].isMegaEvolution", source)
+        self.assertIn("candidate != originalSpecies", source)
+        self.assertIn("RANDOMIZER_RUNTIME_TRAINER_ALLOW_SPECIAL", source)
+        self.assertIn("RANDOMIZER_RUNTIME_TRAINER_SIMILAR_BST", source)
+        self.assertIn("GetSpeciesType(candidate, 0) != theme", source)
+        self.assertNotIn(
+            "if (gSpeciesInfo[originalSpecies].isMegaEvolution)\n"
+            "            return originalSpecies;",
+            source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

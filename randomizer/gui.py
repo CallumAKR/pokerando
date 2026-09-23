@@ -379,12 +379,13 @@ OPTION_HELP = {
     "difficulty_boss_mega": (
         "Gives one permanent Mega ace to every Gym 5–8 Leader, Elite Four "
         "member, Champion party and the final Lilycove rival battle. The "
+        "Mega species is rerolled for each New Game while the ace slot stays "
+        "permanently Mega. The "
         "rival's continuous starter becomes its canonical Mega whenever it "
         "has one; otherwise another party member becomes a suitable Mega. It "
         "requires both trainer Pokémon randomisation and Permanent Mega "
         "Evolutions. The Mega respects any trainer type theme and the "
-        "special-Pokémon setting, and is selected before difficulty movesets, "
-        "EVs, natures and held items are built."
+        "special-Pokémon and similar-BST settings."
     ),
     "difficulty_iv": (
         "Changes trainer-only IVs. Scaled IVs rise from 5 early in the game "

@@ -36,6 +36,7 @@ static const enum Type sRegularTypes[] =
 #define RUNTIME_LEVEL_UP_CAPACITY 64
 #define RUNTIME_TEACHABLE_CAPACITY 512
 #define RUNTIME_EVOLUTION_CAPACITY 32
+#define RUNTIME_SIMILAR_BST_TOLERANCE 50
 
 static EWRAM_DATA struct LevelUpMove sRuntimeLevelUpLearnset[RUNTIME_LEVEL_UP_CAPACITY];
 #if RANDOMIZER_RUNTIME_TMS
@@ -322,8 +323,8 @@ static bool32 IsRuntimeSpeciesCandidate(enum Species species,
         return TRUE;
 
     candidateBst = GetRuntimeTargetBst(species);
-    return candidateBst + 50 >= originalBst
-        && candidateBst <= originalBst + 50;
+    return candidateBst + RUNTIME_SIMILAR_BST_TOLERANCE >= originalBst
+        && candidateBst <= originalBst + RUNTIME_SIMILAR_BST_TOLERANCE;
 }
 
 enum Species RuntimeRandomizerSpecies(u32 domain, u32 key1, u32 key2,
@@ -722,6 +723,76 @@ static enum Type GetRuntimeTrainerTheme(u32 groupId)
 #undef RUNTIME_GYM_THEME_COUNT
 #endif
 
+#if RANDOMIZER_RUNTIME_TRAINERS
+static bool32 IsRuntimeTrainerMegaCandidate(enum Species candidate,
+                                            enum Species originalSpecies,
+                                            enum Type theme)
+{
+    enum Species baseSpecies;
+
+    if (candidate <= SPECIES_NONE || candidate >= NUM_SPECIES)
+        return FALSE;
+    if (!IsSpeciesEnabled(candidate) || !gSpeciesInfo[candidate].isMegaEvolution)
+        return FALSE;
+
+    baseSpecies = GetMegaBaseSpecies(candidate);
+    if (!RANDOMIZER_RUNTIME_TRAINER_ALLOW_SPECIAL
+     && baseSpecies != SPECIES_NONE
+     && IsSpecialSpecies(baseSpecies))
+        return FALSE;
+    if (!RANDOMIZER_RUNTIME_TRAINER_ALLOW_SPECIAL
+     && baseSpecies == SPECIES_NONE
+     && (gSpeciesInfo[candidate].isRestrictedLegendary
+      || gSpeciesInfo[candidate].isSubLegendary
+      || gSpeciesInfo[candidate].isMythical
+      || gSpeciesInfo[candidate].isUltraBeast
+      || gSpeciesInfo[candidate].isParadox))
+        return FALSE;
+
+    if (RANDOMIZER_RUNTIME_TRAINER_SIMILAR_BST)
+    {
+        u32 originalBst = GetRuntimeTargetBst(originalSpecies);
+        u32 candidateBst = GetRuntimeTargetBst(candidate);
+
+        if (candidateBst + RUNTIME_SIMILAR_BST_TOLERANCE < originalBst
+         || candidateBst > originalBst + RUNTIME_SIMILAR_BST_TOLERANCE)
+            return FALSE;
+    }
+
+    if (theme != TYPE_NONE
+     && GetSpeciesType(candidate, 0) != theme
+     && GetSpeciesType(candidate, 1) != theme)
+        return FALSE;
+
+    return TRUE;
+}
+
+static enum Species GetRuntimeTrainerMegaSpecies(u32 trainerId, u32 slot,
+                                                  enum Species originalSpecies,
+                                                  enum Type theme)
+{
+    u32 key1 = RANDOMIZER_RUNTIME_TRAINER_MODE == 0
+             ? originalSpecies : trainerId;
+    u32 key2 = RANDOMIZER_RUNTIME_TRAINER_MODE == 0 ? 0 : slot;
+    u32 attempt;
+
+    for (attempt = 0; attempt < NUM_SPECIES * 2; attempt++)
+    {
+        enum Species candidate = 1 + RuntimeRandomizerHash(
+            RUNTIME_DOMAIN_TRAINER_SPECIES, key1 ^ 0x4D454741u,
+            key2, attempt) % (NUM_SPECIES - 1);
+
+        if (candidate != originalSpecies
+         && IsRuntimeTrainerMegaCandidate(candidate, originalSpecies, theme))
+            return candidate;
+    }
+
+    /* Keeping the compiled Mega is safer than dropping the permanent-Mega
+     * guarantee if the selected restrictions leave no alternative. */
+    return originalSpecies;
+}
+#endif
+
 enum Species RuntimeRandomizerTrainerSpecies(u32 trainerId, u32 slot,
                                              u32 partySize, u32 level,
                                              enum Species originalSpecies)
@@ -737,7 +808,19 @@ enum Species RuntimeRandomizerTrainerSpecies(u32 trainerId, u32 slot,
         {
             enum Species mega = GetFirstMegaForm(starter);
 
-            return mega == SPECIES_NONE ? originalSpecies : mega;
+            if (mega != SPECIES_NONE
+#if RANDOMIZER_RUNTIME_TRAINERS
+             && IsRuntimeTrainerMegaCandidate(
+                    mega, originalSpecies, TYPE_NONE)
+#endif
+            )
+                return mega;
+#if RANDOMIZER_RUNTIME_TRAINERS
+            return GetRuntimeTrainerMegaSpecies(
+                trainerId, slot, originalSpecies, TYPE_NONE);
+#else
+            return originalSpecies;
+#endif
         }
         return starter;
     }
@@ -749,15 +832,16 @@ enum Species RuntimeRandomizerTrainerSpecies(u32 trainerId, u32 slot,
                  ? originalSpecies : trainerId;
         u32 key2 = RANDOMIZER_RUNTIME_TRAINER_MODE == 0 ? 0 : slot;
         u32 attempt;
+        enum Type theme = TYPE_NONE;
 #if RANDOMIZER_RUNTIME_TRAINER_TYPE_THEMES
         s32 themeGroup = GetRuntimeTrainerThemeGroup(trainerId);
-        enum Type theme = themeGroup < 0
-                        ? TYPE_NONE
-                        : GetRuntimeTrainerTheme(themeGroup);
+
+        theme = themeGroup < 0 ? TYPE_NONE : GetRuntimeTrainerTheme(themeGroup);
 #endif
 
         if (gSpeciesInfo[originalSpecies].isMegaEvolution)
-            return originalSpecies;
+            return GetRuntimeTrainerMegaSpecies(
+                trainerId, slot, originalSpecies, theme);
 
         for (attempt = 0; attempt < NUM_SPECIES * 2; attempt++)
         {
