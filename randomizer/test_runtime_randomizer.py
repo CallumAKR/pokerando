@@ -180,6 +180,18 @@ class RuntimeRandomizerTests(unittest.TestCase):
             source,
         )
 
+    def test_runtime_trainer_id_does_not_require_linker_data(self):
+        source = (ROOT / "src/battle_main.c").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertNotIn("sRuntimeTrainerId", source)
+        self.assertIn("CreateNPCTrainerPartyFromTrainerId", source)
+        self.assertIn(
+            "trainerId, monIndex, trainer->partySize",
+            source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

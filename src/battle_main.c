@@ -94,7 +94,11 @@ static void CB2_HandleStartBattle(void);
 static void TryCorrectShedinjaLanguage(struct Pokemon *mon);
 static enum BattleTrainer GetBattlerTrainerFromParty(struct Pokemon *party);
 static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum);
-static u16 sRuntimeTrainerId = TRAINERS_COUNT;
+static u8 CreateNPCTrainerPartyFromTrainerId(struct Pokemon *party,
+                                             const struct Trainer *trainer,
+                                             bool32 halfTeam,
+                                             u32 battleTypeFlags,
+                                             u16 trainerId);
 static void BattleMainCB1(void);
 static void CB2_EndLinkBattle(void);
 static void EndLinkBattleInSteps(void);
@@ -1864,7 +1868,11 @@ void CustomTrainerPartyAssignMoves(struct Pokemon *mon, const struct TrainerMon 
     }
 }
 
-u8 CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Trainer *trainer, bool32 halfTeam, u32 battleTypeFlags)
+static u8 CreateNPCTrainerPartyFromTrainerId(struct Pokemon *party,
+                                             const struct Trainer *trainer,
+                                             bool32 halfTeam,
+                                             u32 battleTypeFlags,
+                                             u16 trainerId)
 {
     u32 personalityValue;
     u8 monsCount;
@@ -1896,7 +1904,7 @@ u8 CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Trainer 
             u32 personalityHash = GeneratePartyHash(trainer, i);
             const struct TrainerMon *partyData = trainer->party;
             enum Species trainerSpecies = RuntimeRandomizerTrainerSpecies(
-                sRuntimeTrainerId, monIndex, trainer->partySize,
+                trainerId, monIndex, trainer->partySize,
                 partyData[monIndex].lvl, partyData[monIndex].species);
             struct OriginalTrainerId otId = OTID_STRUCT_RANDOM_NO_SHINY;
             u32 abilityNum = 0;
@@ -2007,6 +2015,15 @@ u8 CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Trainer 
     return trainer->partySize;
 }
 
+u8 CreateNPCTrainerPartyFromTrainer(struct Pokemon *party,
+                                    const struct Trainer *trainer,
+                                    bool32 halfTeam,
+                                    u32 battleTypeFlags)
+{
+    return CreateNPCTrainerPartyFromTrainerId(
+        party, trainer, halfTeam, battleTypeFlags, TRAINERS_COUNT);
+}
+
 static enum BattleTrainer GetBattlerTrainerFromParty(struct Pokemon *party)
 {
     return ((party - gParties[B_TRAINER_PLAYER]) / PARTY_SIZE);
@@ -2031,15 +2048,16 @@ static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum)
         if (tempTrainer.partySize == 0)
             tempTrainer.partySize = origTrainer->partySize;
 
-        sRuntimeTrainerId = trainerNum;
-        retVal = CreateNPCTrainerPartyFromTrainer(party, (const struct Trainer *)(&tempTrainer), halfTeam, gBattleTypeFlags);
+        retVal = CreateNPCTrainerPartyFromTrainerId(
+            party, (const struct Trainer *)(&tempTrainer), halfTeam,
+            gBattleTypeFlags, trainerNum);
     }
     else
     {
-        sRuntimeTrainerId = trainerNum;
-        retVal = CreateNPCTrainerPartyFromTrainer(party, GetTrainerStructFromId(trainerNum), halfTeam, gBattleTypeFlags);
+        retVal = CreateNPCTrainerPartyFromTrainerId(
+            party, GetTrainerStructFromId(trainerNum), halfTeam,
+            gBattleTypeFlags, trainerNum);
     }
-    sRuntimeTrainerId = TRAINERS_COUNT;
     return retVal;
 }
 
@@ -2049,9 +2067,10 @@ void CreateTrainerPartyForPlayer(void)
 
     ZeroPlayerPartyMons();
     gPartnerTrainerId = gSpecialVar_0x8004;
-    sRuntimeTrainerId = gSpecialVar_0x8004;
-    CreateNPCTrainerPartyFromTrainer(gParties[B_TRAINER_PLAYER], GetTrainerStructFromId(gSpecialVar_0x8004), TRUE, BATTLE_TYPE_TRAINER);
-    sRuntimeTrainerId = TRAINERS_COUNT;
+    CreateNPCTrainerPartyFromTrainerId(
+        gParties[B_TRAINER_PLAYER],
+        GetTrainerStructFromId(gSpecialVar_0x8004), TRUE,
+        BATTLE_TYPE_TRAINER, gSpecialVar_0x8004);
 }
 
 void VBlankCB_Battle(void)

@@ -64,7 +64,7 @@ jobs:
       - name: Generate ignored source headers
         run: |
           make -j$(nproc) -f make_tools.mk \
-            tools/jsonproc tools/mapjson tools/trainerproc
+            tools/jsonproc tools/mapjson tools/preproc tools/trainerproc
           make generated
 
       # A fresh clone cannot run the full asset build because this repository
@@ -79,3 +79,14 @@ jobs:
             -iquote include -iquote tools/agbcc/include \
             -Wno-attributes -Wno-unknown-pragmas \
             src/runtime_randomizer.c
+
+      - name: Compile trainer runtime hook with project pipeline
+        run: |
+          mkdir -p build/emerald/src build/assets
+          make NODEP=1 build/emerald/src/battle_main.o
+          if arm-none-eabi-objdump -h build/emerald/src/battle_main.o \
+            | awk '$2 == ".data" && $3 != "00000000" { found = 1 } END { exit !found }'
+          then
+            echo "battle_main.o contains writable .data discarded by the linker"
+            exit 1
+          fi
