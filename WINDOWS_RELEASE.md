@@ -26,7 +26,14 @@ to tools installed on the user's computer.
 ## 1. Prepare the portable build environment
 
 The large Windows tool bundle is intentionally not stored in normal Git
-history. It must exist locally at:
+history. Install devkitPro with GBA Development/devkitARM on the packaging PC,
+then from the repository root run:
+
+```powershell
+python .\bootstrap_windows_tools.py
+```
+
+The bootstrapper creates:
 
 ```text
 randomizer/tools/windows/
@@ -34,20 +41,20 @@ randomizer/tools/windows/
     toolchain/
 ```
 
-The MSYS2 tree must contain the host-side tools needed by the
-pokeemerald-expansion build, including GNU Make, GCC/G++, pkg-config, Git,
-libpng and zlib development headers/libraries.
+It copies devkitPro's MSYS2 and devkitARM into an isolated staging area,
+installs the host build packages into that staged MSYS2, downloads the
+libpng 1.6.37 source archive used by the legacy pokeemerald Windows/MSYS2
+instructions, verifies its published SHA-256 checksum, builds it into the
+staged `/usr`, and finally runs `windows_toolchain_check.py`.
 
-The separate `toolchain` directory must contain the ARM bare-metal toolchain,
-including `bin/arm-none-eabi-gcc.exe`.
+The bootstrap must finish with:
 
-Validate the bundle before packaging:
-
-```powershell
-python .\randomizer\windows_toolchain_check.py
+```text
+PASS: portable Windows build environment is isolated and complete.
 ```
 
-Do not continue until it reports `PASS`.
+To deliberately rebuild an existing local bundle, use
+`python .\bootstrap_windows_tools.py --force`.
 
 ## 2. Install the packaging dependency
 
