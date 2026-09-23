@@ -68,9 +68,17 @@ jobs:
             tools/gbagfx tools/jsonproc tools/mapjson tools/preproc \
             tools/trainerproc
           make generated
-          make \
-            build/assets/graphics/bag/select_button.png.4bpp \
-            build/assets/graphics/party_menu/hold_icons.png.4bpp \
+          mkdir -p \
+            build/assets/graphics/bag \
+            build/assets/graphics/party_menu
+          tools/gbagfx/gbagfx \
+            graphics/bag/select_button.png \
+            build/assets/graphics/bag/select_button.png.4bpp
+          tools/gbagfx/gbagfx \
+            graphics/party_menu/hold_icons.png \
+            build/assets/graphics/party_menu/hold_icons.png.4bpp
+          tools/gbagfx/gbagfx \
+            graphics/party_menu/hold_icons.png \
             build/assets/graphics/party_menu/hold_icons.png.gbapal
 
       # A fresh clone cannot run the full asset build because this repository
