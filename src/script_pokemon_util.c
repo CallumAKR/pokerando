@@ -22,6 +22,7 @@
 #include "pokemon_storage_system.h"
 #include "random.h"
 #include "random_mon_generation.h"
+#include "runtime_randomizer.h"
 #include "script.h"
 #include "sprite.h"
 #include "string_util.h"
@@ -504,6 +505,9 @@ void ScrCmd_createmon(struct ScriptContext *ctx)
     u8 slot            = ScriptReadByte(ctx);
     enum Species species = VarGet(ScriptReadHalfword(ctx));
     u8 level           = VarGet(ScriptReadHalfword(ctx));
+
+    if (side == B_SIDE_PLAYER && level == 20)
+        species = RuntimeRandomizerFossilSpecies(species);
 
     u32 flags          = ScriptReadWord(ctx);
     enum Item item     = PARSE_FLAG(0, ITEM_NONE);

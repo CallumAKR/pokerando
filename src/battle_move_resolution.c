@@ -1169,23 +1169,12 @@ static enum CancelerResult CancelerMoveFailure(struct BattleCalcValues *cv)
         if (!IS_BATTLER_OF_TYPE(cv->battlerAtk, GetMoveArgType(cv->move)))
             battleScript = BattleScript_ButItFailed;
         break;
-    case EFFECT_DARK_VOID:
-        if (gBattleStruct->bouncedMoveIsUsed)
-            break;
-        if (B_DARK_VOID_FAIL >= GEN_7 && gBattleMons[cv->battlerAtk].species != SPECIES_DARKRAI)
-            battleScript = BattleScript_PokemonCantUseTheMove;
-        break;
-    case EFFECT_AURA_WHEEL:
-        if (gBattleMons[cv->battlerAtk].species != SPECIES_MORPEKO_FULL_BELLY
-         && gBattleMons[cv->battlerAtk].species != SPECIES_MORPEKO_HANGRY)
-            battleScript = BattleScript_PokemonCantUseTheMove;
-        break;
-    case EFFECT_HYPERSPACE_FURY:
-        if (gBattleMons[cv->battlerAtk].species == SPECIES_HOOPA_CONFINED)
-            battleScript = BattleScript_ButHoopaCantUseIt;
-        else if (gBattleMons[cv->battlerAtk].species != SPECIES_HOOPA_UNBOUND)
-            battleScript = BattleScript_PokemonCantUseTheMove;
-        break;
+    // RANDOMIZER: signature moves can be used by any species.
+    /*
+     * Dark Void, Aura Wheel and Hyperspace Fury deliberately have no
+     * species lock here. The randomizer can teach them to any species, so a
+     * legitimately learned move must remain usable by its new owner.
+     */
     case EFFECT_AURORA_VEIL:
         if (!(GetWeather() & B_WEATHER_ICY_ANY))
             battleScript = BattleScript_ButItFailed;

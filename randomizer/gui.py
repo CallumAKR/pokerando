@@ -251,7 +251,8 @@ OPTION_HELP = {
         "caught. When this option is off, normal Emerald event access is kept."
     ),
     "starter_random": (
-        "Randomly replaces the three starter Pokémon when the randomiser runs."
+        "Randomly replaces the three starter Pokémon for each New Game. "
+        "The choices stay fixed for that save."
     ),
     "starter_three_stage": (
         "Restricts random starters to base Pokémon that can evolve twice, "
@@ -284,14 +285,14 @@ OPTION_HELP = {
         "the original appears in wild encounter tables."
     ),
     "wild_slots": (
-        "Randomises every encounter-table slot independently when the ROM is "
-        "generated. Each route keeps those randomised slots for the whole game."
+        "Randomises every encounter-table slot independently for each New "
+        "Game. Each route keeps those slots for the life of that save."
     ),
     "wild_runtime": (
-        "Rerolls the species for each route-table wild encounter. Encounter "
-        "levels remain based on the route's normal table. Roamer, outbreak, "
-        "and fixed Feebas overrides are suppressed in this mode so they cannot "
-        "bypass the selected BST rule."
+        "Creates a separate species mapping for each route and encounter "
+        "method. Repeated copies of a species on that route match, but the "
+        "same original species may map differently elsewhere. The mapping is "
+        "generated at New Game and remains fixed for that save."
     ),
     "wild_allow_special": (
         "Allows Legendary, Mythical, Ultra Beast and Paradox Pokémon to appear "
@@ -378,12 +379,13 @@ OPTION_HELP = {
     "difficulty_boss_mega": (
         "Gives one permanent Mega ace to every Gym 5–8 Leader, Elite Four "
         "member, Champion party and the final Lilycove rival battle. The "
+        "Mega species is rerolled for each New Game while the ace slot stays "
+        "permanently Mega. The "
         "rival's continuous starter becomes its canonical Mega whenever it "
         "has one; otherwise another party member becomes a suitable Mega. It "
         "requires both trainer Pokémon randomisation and Permanent Mega "
         "Evolutions. The Mega respects any trainer type theme and the "
-        "special-Pokémon setting, and is selected before difficulty movesets, "
-        "EVs, natures and held items are built."
+        "special-Pokémon and similar-BST settings."
     ),
     "difficulty_iv": (
         "Changes trainer-only IVs. Scaled IVs rise from 5 early in the game "
@@ -1196,7 +1198,10 @@ class RandomizerGUI(tk.Tk):
 
         tk.Label(
             main_content,
-            text="Choose randomisation options by category, then build the ROM.",
+            text=(
+                "Options are built into the ROM. Each New Game creates a new, "
+                "stable randomised world."
+            ),
         ).pack(pady=(0, 8))
 
         seed_box = tk.LabelFrame(main_content, text="Seed")
@@ -1707,7 +1712,7 @@ class RandomizerGUI(tk.Tk):
 
         self.wild_runtime = FilledIndicatorOption(
             wild_mode_row,
-            text="Randomise every encounter at runtime",
+            text="Use route-local species mappings",
             variable=self.wild_mode,
             value="runtime",
             shape="circle",
@@ -3875,6 +3880,11 @@ class RandomizerGUI(tk.Tk):
                             else False
                         ),
                         static_mode=static_mode if "statics" in selected else None,
+                        fossil_only_replacements=(
+                            fossil_only_replacements
+                            if "statics" in selected
+                            else False
+                        ),
                         trainer_mode=trainer_mode if "trainers" in selected else None,
                         trainer_allow_special=(
                             trainer_allow_special
@@ -3914,6 +3924,7 @@ class RandomizerGUI(tk.Tk):
                         add_regional_postcards=add_regional_postcards,
                         add_mega_stones=add_mega_stones,
                         include_game_corner=include_game_corner,
+                        enable_all_fossils=enable_all_fossils,
                         game_permadeath=game_permadeath,
                         game_hm_free=game_hm_free,
                         game_hm_progression_bypass=(
@@ -3952,6 +3963,7 @@ class RandomizerGUI(tk.Tk):
                             if "starters" in selected
                             else False
                         ),
+                        rival_starter_continuity=rival_starter_continuity,
                         manual_starters=manual_starters,
                         manual_customizations=manual_customizations,
                     )

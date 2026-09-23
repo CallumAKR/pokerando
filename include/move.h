@@ -9,6 +9,7 @@
 #include "constants/battle_string_ids.h"
 #include "constants/battle_z_move_effects.h"
 #include "constants/moves.h"
+#include "runtime_randomizer.h"
 
 #define STAT_CHANGE_FORCE_MAX 7 // Used for belly drum as a way to show that stats are maxed
 
@@ -257,7 +258,8 @@ static inline const u8 *GetMoveDescription(enum Move moveId)
 
 static inline enum Type GetMoveType(enum Move moveId)
 {
-    return gMovesInfo[SanitizeMoveId(moveId)].type;
+    moveId = SanitizeMoveId(moveId);
+    return RuntimeRandomizerMoveType(moveId, gMovesInfo[moveId].type);
 }
 
 static inline enum DamageCategory GetMoveCategory(enum Move moveId)

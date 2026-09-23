@@ -119,6 +119,40 @@ class UtilityItemTests(unittest.TestCase):
             self.assertIsInstance(parameters[name], ast.Constant)
             self.assertFalse(parameters[name].value)
 
+    def test_mom_bonus_uses_a_fixed_non_randomized_grant(self):
+        options = (ROOT / "randomizer/game_options.py").read_text(
+            encoding="utf-8"
+        )
+        script = (
+            ROOT / "data/maps/LittlerootTown/scripts.inc"
+        ).read_text(encoding="utf-8")
+        item_source = (ROOT / "src/item.c").read_text(encoding="utf-8")
+
+        native_call = (
+            "callnative GiveMomBonusUltraBalls, requests_effects=1"
+        )
+        self.assertIn(native_call, options)
+        self.assertIn(native_call, script)
+        self.assertIn("AddBagItem(ITEM_ULTRA_BALL, 99);", item_source)
+
+    def test_expanded_bag_uses_saveblock3_and_migrates_old_saves(self):
+        constants = (ROOT / "include/constants/global.h").read_text(
+            encoding="utf-8"
+        )
+        globals_source = (ROOT / "include/global.h").read_text(
+            encoding="utf-8"
+        )
+        item_source = (ROOT / "src/item.c").read_text(encoding="utf-8")
+        save_source = (ROOT / "src/save.c").read_text(encoding="utf-8")
+
+        self.assertIn("#define BAG_ITEMS_COUNT 160", constants)
+        self.assertIn("#define BAG_KEYITEMS_COUNT 50", constants)
+        self.assertIn("#define BAG_POKEBALLS_COUNT 32", constants)
+        self.assertIn("struct LegacyBag legacyBag;", globals_source)
+        self.assertIn("struct Bag bag;", globals_source)
+        self.assertIn("MigrateBagSaveData", item_source)
+        self.assertIn("MigrateBagSaveData();", save_source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,5 @@
 #include "global.h"
+#include "runtime_randomizer.h"
 #include "debug.h"
 #include "malloc.h"
 #include "battle.h"
@@ -1741,9 +1742,11 @@ u16 GetMysteryGiftCardStat(void)
 
 bool8 BufferTMHMMoveName(void)
 {
-    if (gItemsInfo[gSpecialVar_0x8004].pocket == POCKET_TM_HM)
+    enum Item item = RuntimeRandomizerItem(gSpecialVar_0x8004);
+
+    if (gItemsInfo[item].pocket == POCKET_TM_HM)
     {
-        StringCopy(gStringVar2, GetMoveName(ItemIdToBattleMoveId(gSpecialVar_0x8004)));
+        StringCopy(gStringVar2, GetMoveName(ItemIdToBattleMoveId(item)));
         return TRUE;
     }
 

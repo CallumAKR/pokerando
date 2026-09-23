@@ -1,4 +1,5 @@
 #include "global.h"
+#include "runtime_randomizer.h"
 #include "randomizer_game_options.h"
 #include "frontier_util.h"
 #include "battle_setup.h"
@@ -627,6 +628,8 @@ bool8 ScrCmd_additem(struct ScriptContext *ctx)
     enum Item itemId = VarGet(ScriptReadHalfword(ctx));
     u32 quantity = VarGet(ScriptReadHalfword(ctx));
 
+    itemId = RuntimeRandomizerItem(itemId);
+
     Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
 
     gSpecialVar_Result = AddBagItem(itemId, quantity);
@@ -649,6 +652,8 @@ bool8 ScrCmd_checkitemspace(struct ScriptContext *ctx)
     enum Item itemId = VarGet(ScriptReadHalfword(ctx));
     u32 quantity = VarGet(ScriptReadHalfword(ctx));
 
+    itemId = RuntimeRandomizerItem(itemId);
+
     Script_RequestEffects(SCREFF_V1);
 
     gSpecialVar_Result = CheckBagHasSpace(itemId, quantity);
@@ -669,6 +674,8 @@ bool8 ScrCmd_checkitem(struct ScriptContext *ctx)
 bool8 ScrCmd_checkitemtype(struct ScriptContext *ctx)
 {
     enum Item itemId = VarGet(ScriptReadHalfword(ctx));
+
+    itemId = RuntimeRandomizerItem(itemId);
 
     Script_RequestEffects(SCREFF_V1);
 
@@ -2118,6 +2125,9 @@ bool8 ScrCmd_bufferspeciesname(struct ScriptContext *ctx)
     u8 stringVarIndex = ScriptReadByte(ctx);
     enum Species species = VarGet(ScriptReadHalfword(ctx)) & OBJ_EVENT_MON_SPECIES_MASK; // ignore possible shiny / form bits
 
+    species = RuntimeRandomizerFossilSpecies(species);
+    species = RuntimeRandomizerStaticPresentationSpecies(species);
+
     Script_RequestEffects(SCREFF_V1);
 
     StringCopy(sScriptStringVars[stringVarIndex], GetSpeciesName(species));
@@ -2164,6 +2174,8 @@ bool8 ScrCmd_bufferitemname(struct ScriptContext *ctx)
     u8 stringVarIndex = ScriptReadByte(ctx);
     enum Item itemId = VarGet(ScriptReadHalfword(ctx));
 
+    itemId = RuntimeRandomizerItem(itemId);
+
     Script_RequestEffects(SCREFF_V1);
 
     CopyItemName(itemId, sScriptStringVars[stringVarIndex]);
@@ -2175,6 +2187,8 @@ bool8 ScrCmd_bufferitemnameplural(struct ScriptContext *ctx)
     u8 stringVarIndex = ScriptReadByte(ctx);
     enum Item itemId = VarGet(ScriptReadHalfword(ctx));
     u16 quantity = VarGet(ScriptReadHalfword(ctx));
+
+    itemId = RuntimeRandomizerItem(itemId);
 
     Script_RequestEffects(SCREFF_V1);
 
@@ -2286,6 +2300,8 @@ bool8 ScrCmd_bufferboxname(struct ScriptContext *ctx)
 bool8 ScrCmd_giveegg(struct ScriptContext *ctx)
 {
     enum Species species = VarGet(ScriptReadHalfword(ctx));
+
+    species = RuntimeRandomizerEggSpecies((u32)ctx->scriptPtr, species);
 
     Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
 
@@ -2544,6 +2560,10 @@ bool8 ScrCmd_setwildbattle(struct ScriptContext *ctx)
     u8 level2 = ScriptReadByte(ctx);
     enum Item item2 = ScriptReadHalfword(ctx);
 
+    species = RuntimeRandomizerStaticSpecies((u32)ctx->scriptPtr, 0, species);
+    if (species2 != SPECIES_NONE)
+        species2 = RuntimeRandomizerStaticSpecies((u32)ctx->scriptPtr, 1, species2);
+
     Script_RequestEffects(SCREFF_V1);
 
     if (species2 == SPECIES_NONE)
@@ -2740,6 +2760,11 @@ bool8 ScrCmd_playmoncry(struct ScriptContext *ctx)
 {
     enum Species species = VarGet(ScriptReadHalfword(ctx));
     u16 mode = VarGet(ScriptReadHalfword(ctx));
+
+    if (mode == CRY_MODE_ENCOUNTER)
+        species = RuntimeRandomizerStaticSpecies((u32)ctx->scriptPtr, 0, species);
+    else
+        species = RuntimeRandomizerStaticPresentationSpecies(species);
 
     Script_RequestEffects(SCREFF_V1 | SCREFF_HARDWARE);
 

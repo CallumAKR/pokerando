@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SPECIES_DIR = ROOT / "src/data/pokemon/species_info"
 LEARNSET_FILE = ROOT / "src/data/pokemon/level_up_learnsets/gen_9.h"
 MOVES_FILE = ROOT / "src/data/moves_info.h"
+MOVE_CONSTANTS_FILE = ROOT / "include/constants/moves.h"
 LEARNABLES_FILE = ROOT / "src/data/pokemon/all_learnables.json"
 
 
@@ -46,6 +47,25 @@ BANNED_MOVES = {
     "MOVE_SPARKLY_SWIRL",
     "MOVE_SKETCH",
 }
+
+# Z-Moves, Max Moves and G-Max Moves are battle-generated transformations of
+# ordinary moves.  Putting one directly in a learnset leaves the Pokemon with
+# a move that cannot be selected normally, so exclude the complete special
+# battle-move section rather than relying on name prefixes alone.
+move_constants_text = MOVE_CONSTANTS_FILE.read_text(encoding="utf-8")
+special_move_section = re.search(
+    r"// Z Moves(?P<body>.*?)MOVES_COUNT_DYNAMAX",
+    move_constants_text,
+    re.DOTALL,
+)
+if special_move_section is None:
+    raise RuntimeError(
+        "Could not identify the Z/Max move section in "
+        "include/constants/moves.h."
+    )
+BANNED_MOVES.update(
+    re.findall(r"\bMOVE_[A-Z0-9_]+\b", special_move_section.group("body"))
+)
 
 seed = (
     int(sys.argv[1])

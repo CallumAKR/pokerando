@@ -337,6 +337,7 @@ static u8 GetPartySlotEntryStatus(s8);
 static void Task_UpdateHeldItemSprite(u8);
 static void Task_HandleSelectionMenuInput(u8);
 static void CB2_ShowPokemonSummaryScreen(void);
+static void CB2_ReturnToPartyMenuAfterLevelToCap(void);
 static void UpdatePartyToBattleOrder(void);
 static void SlidePartyMenuBoxOneStep(u8);
 static void Task_SlideSelectedSlotsOffscreen(u8);
@@ -3146,7 +3147,19 @@ static void CursorCb_LevelToCap(u8 taskId)
     PartyMenuRemoveWindow(&sPartyMenuInternal->windowId[0]);
     PartyMenuRemoveWindow(&sPartyMenuInternal->windowId[1]);
     gSpecialVar_ItemId = ITEM_NONE;  // No Bag item owns this action.
-    ItemUseCB_CapCandy(taskId, Task_ClosePartyMenuAfterText);
+    ItemUseCB_CapCandy(taskId, Task_ReturnToChooseMonAfterText);
+}
+
+static void CB2_ReturnToPartyMenuAfterLevelToCap(void)
+{
+    InitPartyMenu(
+        PARTY_MENU_TYPE_FIELD,
+        KEEP_PARTY_LAYOUT,
+        PARTY_ACTION_CHOOSE_MON,
+        TRUE,
+        PARTY_MSG_CHOOSE_MON,
+        Task_HandleChooseMonInput,
+        gPartyMenu.exitCallback);
 }
 
 static void CB2_ShowPokemonSummaryScreen(void)
@@ -6136,6 +6149,9 @@ static void PartyMenuTryEvolution(u8 taskId)
         FreePartyPointers();
         if (GetItemFieldFunc(gSpecialVar_ItemId) == ItemUseOutOfBattle_RareCandy && gPartyMenu.menuType == PARTY_MENU_TYPE_FIELD && CheckBagHasItem(gSpecialVar_ItemId, 1))
             gCB2_AfterEvolution = CB2_ReturnToPartyMenuUsingRareCandy;
+        else if (gPartyMenu.menuType == PARTY_MENU_TYPE_FIELD
+              && gSpecialVar_ItemId == ITEM_NONE)
+            gCB2_AfterEvolution = CB2_ReturnToPartyMenuAfterLevelToCap;
         else
             gCB2_AfterEvolution = gPartyMenu.exitCallback;
         BeginEvolutionScene(mon, targetSpecies, canStopEvo, gPartyMenu.slotId);
@@ -6143,7 +6159,9 @@ static void PartyMenuTryEvolution(u8 taskId)
     }
     else
     {
-        if (gPartyMenu.menuType == PARTY_MENU_TYPE_FIELD && CheckBagHasItem(gSpecialVar_ItemId, 1))
+        if (gPartyMenu.menuType == PARTY_MENU_TYPE_FIELD
+         && (gSpecialVar_ItemId == ITEM_NONE
+          || CheckBagHasItem(gSpecialVar_ItemId, 1)))
             gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
         else
             gTasks[taskId].func = Task_ClosePartyMenuAfterText;

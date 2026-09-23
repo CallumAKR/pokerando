@@ -253,8 +253,44 @@ struct NPCFollower
 #include "constants/items.h"
 #define ITEM_FLAGS_COUNT ((ITEMS_COUNT / 8) + ((ITEMS_COUNT % 8) ? 1 : 0))
 
+struct ItemSlot
+{
+    enum Item itemId;
+    u16 quantity;
+};
+
+struct Bag
+{
+    struct ItemSlot items[BAG_ITEMS_COUNT];
+    struct ItemSlot keyItems[BAG_KEYITEMS_COUNT];
+    struct ItemSlot pokeBalls[BAG_POKEBALLS_COUNT];
+    struct ItemSlot TMsHMs[BAG_TMHM_COUNT];
+    struct ItemSlot berries[BAG_BERRIES_COUNT];
+};
+
+// The original-sized bag stays in SaveBlock1 solely so every later field keeps
+// its established offset.  Existing saves are copied from here once into the
+// expanded SaveBlock3 bag.
+#define LEGACY_BAG_ITEMS_COUNT       30
+#define LEGACY_BAG_KEYITEMS_COUNT    30
+#define LEGACY_BAG_POKEBALLS_COUNT   16
+#define LEGACY_BAG_TMHM_COUNT        108
+#define LEGACY_BAG_BERRIES_COUNT     46
+#define EXPANDED_BAG_SAVE_MAGIC      0x42414732u
+
+struct LegacyBag
+{
+    struct ItemSlot items[LEGACY_BAG_ITEMS_COUNT];
+    struct ItemSlot keyItems[LEGACY_BAG_KEYITEMS_COUNT];
+    struct ItemSlot pokeBalls[LEGACY_BAG_POKEBALLS_COUNT];
+    struct ItemSlot TMsHMs[LEGACY_BAG_TMHM_COUNT];
+    struct ItemSlot berries[LEGACY_BAG_BERRIES_COUNT];
+};
+
 struct SaveBlock3
 {
+    u32 expandedBagMagic;
+    struct Bag bag;
 #if OW_USE_FAKE_RTC
     struct SiiRtcInfo fakeRTC;
 #endif
@@ -672,12 +708,6 @@ struct WarpData
     s16 x, y;
 };
 
-struct ItemSlot
-{
-    enum Item itemId;
-    u16 quantity;
-};
-
 struct Pokeblock
 {
     u8 color;
@@ -1082,15 +1112,6 @@ struct ExternalEventFlags
 
 } __attribute__((packed));/*size = 0x15*/
 
-struct Bag
-{
-    struct ItemSlot items[BAG_ITEMS_COUNT];
-    struct ItemSlot keyItems[BAG_KEYITEMS_COUNT];
-    struct ItemSlot pokeBalls[BAG_POKEBALLS_COUNT];
-    struct ItemSlot TMsHMs[BAG_TMHM_COUNT];
-    struct ItemSlot berries[BAG_BERRIES_COUNT];
-};
-
 struct SaveBlock1
 {
     /*0x00*/ struct Coords16 pos;
@@ -1113,8 +1134,8 @@ struct SaveBlock1
     /*0x494*/ u16 coins;
     /*0x496*/ u16 registeredItem; // registered for use with SELECT button
     /*0x498*/ struct ItemSlot pcItems[PC_ITEMS_COUNT];
-    /*0x560 -> 0x848 is bag storage*/
-    /*0x560*/ struct Bag bag;
+    /*0x560 -> 0x848 is retained for migration/offset compatibility. */
+    /*0x560*/ struct LegacyBag legacyBag;
     /*0x848*/ struct Pokeblock pokeblocks[POKEBLOCKS_COUNT];
 #if FREE_EXTRA_SEEN_FLAGS_SAVEBLOCK1 == FALSE
     /*0x988*/ u8 filler1[0x34]; // Previously Dex Flags, feel free to remove.

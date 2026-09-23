@@ -1,8 +1,10 @@
 #include "global.h"
 #include "randomizer_game_options.h"
+#include "runtime_randomizer.h"
 #include "battle_setup.h"
 #include "battle_pike.h"
 #include "battle_pyramid.h"
+#include "caps.h"
 #include "event_data.h"
 #include "fieldmap.h"
 #include "fishing.h"
@@ -50,6 +52,7 @@ static void FeebasSeedRng(u16 seed);
 static void ApplyFluteEncounterRateMod(u32 *encRate);
 static void ApplyCleanseTagEncounterRateMod(u32 *encRate);
 static u8 GetMaxLevelOfSpeciesInWildTable(const struct WildPokemon *wildMon, enum Species species, enum WildPokemonArea area);
+static u8 ClampWildLevelToCurrentCap(u8 level);
 #ifdef BUGFIX
 static bool8 TryGetAbilityInfluencedWildMonIndex(const struct WildPokemon *wildMon, enum Type type, enum Ability ability, u8 *monIndex, u32 size);
 #else
@@ -63,9 +66,6 @@ EWRAM_DATA bool8 gIsSurfingEncounter = 0;
 EWRAM_DATA u8 gChainFishingDexNavStreak = 0;
 
 #include "data/wild_encounters.h"
-// RANDOMIZER_RUNTIME_WILD_INCLUDE_BEGIN
-#include "data/randomizer_wild_runtime.h"
-// RANDOMIZER_RUNTIME_WILD_INCLUDE_END
 
 const struct WildPokemon gWildFeebas = {20, 25, SPECIES_FEEBAS};
 
@@ -377,6 +377,13 @@ static u32 ChooseWildMonIndex_Fishing(u8 rod)
     return wildMonIndex;
 }
 
+static u8 ClampWildLevelToCurrentCap(u8 level)
+{
+    u32 levelCap = GetCurrentLevelCap();
+
+    return level > levelCap ? levelCap : level;
+}
+
 u8 ChooseWildMonLevel(const struct WildPokemon *wildPokemon, u8 wildMonIndex, enum WildPokemonArea area)
 {
     u8 min;
@@ -407,22 +414,22 @@ u8 ChooseWildMonLevel(const struct WildPokemon *wildPokemon, u8 wildMonIndex, en
             if (ability == ABILITY_HUSTLE || ability == ABILITY_VITAL_SPIRIT || ability == ABILITY_PRESSURE)
             {
                 if (Random() % 2 == 0)
-                    return max;
+                    return ClampWildLevelToCurrentCap(max);
 
                 if (rand != 0)
                     rand--;
             }
         }
-        return min + rand;
+        return ClampWildLevelToCurrentCap(min + rand);
     }
     else
     {
         // Looks for the max level of all slots that share the same species as the selected slot.
         max = GetMaxLevelOfSpeciesInWildTable(wildPokemon, wildPokemon[wildMonIndex].species, area);
         if (max > 0)
-            return max + 1;
+            return ClampWildLevelToCurrentCap(max + 1);
         else // Failsafe
-            return wildPokemon[wildMonIndex].maxLevel + 1;
+            return ClampWildLevelToCurrentCap(wildPokemon[wildMonIndex].maxLevel + 1);
     }
 }
 
@@ -520,6 +527,7 @@ static u8 PickWildMonNature(enum Species species)
 
 void CreateWildMon(enum Species species, u8 level)
 {
+    level = ClampWildLevelToCurrentCap(level);
     ZeroEnemyPartyMons();
     u32 personality = GetMonPersonality(species, GetSynchronizedGender(WILDMON_ORIGIN, species), PickWildMonNature(species), RANDOM_UNOWN_LETTER);
     CreateMonWithIVs(&gParties[B_TRAINER_OPPONENT_A][0], species, level, personality, OTID_STRUCT_PLAYER_ID, USE_RANDOM_IVS);
@@ -586,14 +594,11 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
     if (gMapHeader.mapLayoutId != LAYOUT_BATTLE_FRONTIER_BATTLE_PIKE_ROOM_WILD_MONS && flags & WILD_CHECK_KEEN_EYE && !IsAbilityAllowingEncounter(level))
         return FALSE;
 
-        // RANDOMIZER_RUNTIME_WILD_TABLE_CALL_BEGIN
     CreateWildMon(
-        RandomizerChooseWildSpecies(
-            wildMonInfo->wildPokemon[wildMonIndex].species
-        ),
+        RuntimeRandomizerWildSpecies(
+            area, wildMonIndex, wildMonInfo->wildPokemon[wildMonIndex].species),
         level
     );
-    // RANDOMIZER_RUNTIME_WILD_TABLE_CALL_END
     return TRUE;
 }
 
@@ -604,26 +609,27 @@ static u16 GenerateFishingWildMon(const struct WildPokemonInfo *wildMonInfo, u8 
     u8 level = ChooseWildMonLevel(wildMonInfo->wildPokemon, wildMonIndex, WILD_AREA_FISHING);
 
     UpdateChainFishingStreak();
-        // RANDOMIZER_RUNTIME_WILD_FISH_CALL_BEGIN
-    wildMonSpecies = RandomizerChooseWildSpecies(
-        wildMonSpecies
-    );
+    wildMonSpecies = RuntimeRandomizerWildSpecies(
+        WILD_AREA_FISHING, wildMonIndex, wildMonSpecies);
     CreateWildMon(
         wildMonSpecies,
         level
     );
-    // RANDOMIZER_RUNTIME_WILD_FISH_CALL_END
     return wildMonSpecies;
 }
 
 bool8 SetUpMassOutbreakEncounter(u8 flags)
 {
     u16 i;
+    u8 level = ClampWildLevelToCurrentCap(gSaveBlock1Ptr->outbreakPokemonLevel);
 
-    if (flags & WILD_CHECK_REPEL && !IsWildLevelAllowedByRepel(gSaveBlock1Ptr->outbreakPokemonLevel))
+    if (flags & WILD_CHECK_REPEL && !IsWildLevelAllowedByRepel(level))
         return FALSE;
 
-    CreateWildMon(gSaveBlock1Ptr->outbreakPokemonSpecies, gSaveBlock1Ptr->outbreakPokemonLevel);
+    CreateWildMon(
+        RuntimeRandomizerWildSpecies(
+            WILD_AREA_LAND, 0xFF, gSaveBlock1Ptr->outbreakPokemonSpecies),
+        level);
     for (i = 0; i < MAX_MON_MOVES; i++)
         SetMonMoveSlot(&gParties[B_TRAINER_OPPONENT_A][0], gSaveBlock1Ptr->outbreakPokemonMoves[i], i);
 
@@ -1009,7 +1015,8 @@ void FishingWildEncounter(u8 rod)
     {
         u8 level = ChooseWildMonLevel(&gWildFeebas, 0, WILD_AREA_FISHING);
 
-        species = gWildFeebas.species;
+        species = RuntimeRandomizerWildSpecies(
+            WILD_AREA_FISHING, 0xFF, gWildFeebas.species);
         CreateWildMon(species, level);
     }
     else

@@ -58,6 +58,19 @@ class CapCandyTests(unittest.TestCase):
         self.assertIn("gBattleScripting.getexpState = 5;", commands)
         self.assertIn("expPointsToGive <= 0", controller)
 
+    def test_level_to_cap_returns_to_party_selection(self):
+        self.assertIn(
+            "ItemUseCB_CapCandy(taskId, Task_ReturnToChooseMonAfterText);",
+            self.source,
+        )
+        self.assertIn("CB2_ReturnToPartyMenuAfterLevelToCap", self.source)
+        self.assertRegex(
+            self.source,
+            r"gSpecialVar_ItemId == ITEM_NONE\)\n"
+            r"\s*gCB2_AfterEvolution = "
+            r"CB2_ReturnToPartyMenuAfterLevelToCap;",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

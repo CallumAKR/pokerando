@@ -270,7 +270,6 @@ def _write_header(
     hm_progression_bypass,
     perma_repel,
     cap_candy,
-    mom_bonus,
     party_heal,
     always_catch,
     force_shiny,
@@ -279,6 +278,7 @@ def _write_header(
     level_caps,
     force_set_battle_style,
     disable_bag_in_trainer_battles,
+    mom_bonus=False,
     always_mirage_island=False,
     time_turner=False,
     weather_setter=False,
@@ -1085,7 +1085,7 @@ def _configure_mom_running_shoes_bonus(enabled):
         gift = (
             bonus_start
             + "\tmsgbox LittlerootTown_Text_MomBonusBalls, MSGBOX_DEFAULT\n"
-            + "\tgiveitem ITEM_ULTRA_BALL, 99\n"
+            + "\tcallnative GiveMomBonusUltraBalls, requests_effects=1\n"
             + "\taddmoney 999999\n"
             + "\tmsgbox LittlerootTown_Text_MomBonusMoney, MSGBOX_DEFAULT\n"
             + bonus_end

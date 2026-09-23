@@ -145,23 +145,23 @@ void ApplyNewEncryptionKeyToBagItems(u32 newKey)
 
 void SetBagItemsPointers(void)
 {
-    gBagPockets[POCKET_ITEMS].itemSlots = gSaveBlock1Ptr->bag.items;
+    gBagPockets[POCKET_ITEMS].itemSlots = gSaveBlock3Ptr->bag.items;
     gBagPockets[POCKET_ITEMS].capacity = BAG_ITEMS_COUNT;
     gBagPockets[POCKET_ITEMS].id = POCKET_ITEMS;
 
-    gBagPockets[POCKET_KEY_ITEMS].itemSlots = gSaveBlock1Ptr->bag.keyItems;
+    gBagPockets[POCKET_KEY_ITEMS].itemSlots = gSaveBlock3Ptr->bag.keyItems;
     gBagPockets[POCKET_KEY_ITEMS].capacity = BAG_KEYITEMS_COUNT;
     gBagPockets[POCKET_KEY_ITEMS].id = POCKET_KEY_ITEMS;
 
-    gBagPockets[POCKET_POKE_BALLS].itemSlots = gSaveBlock1Ptr->bag.pokeBalls;
+    gBagPockets[POCKET_POKE_BALLS].itemSlots = gSaveBlock3Ptr->bag.pokeBalls;
     gBagPockets[POCKET_POKE_BALLS].capacity = BAG_POKEBALLS_COUNT;
     gBagPockets[POCKET_POKE_BALLS].id = POCKET_POKE_BALLS;
 
-    gBagPockets[POCKET_TM_HM].itemSlots = gSaveBlock1Ptr->bag.TMsHMs;
+    gBagPockets[POCKET_TM_HM].itemSlots = gSaveBlock3Ptr->bag.TMsHMs;
     gBagPockets[POCKET_TM_HM].capacity = BAG_TMHM_COUNT;
     gBagPockets[POCKET_TM_HM].id = POCKET_TM_HM;
 
-    gBagPockets[POCKET_BERRIES].itemSlots = gSaveBlock1Ptr->bag.berries;
+    gBagPockets[POCKET_BERRIES].itemSlots = gSaveBlock3Ptr->bag.berries;
     gBagPockets[POCKET_BERRIES].capacity = BAG_BERRIES_COUNT;
     gBagPockets[POCKET_BERRIES].id = POCKET_BERRIES;
 }
@@ -560,7 +560,39 @@ void MoveItemSlotInPC(struct ItemSlot *itemSlots, u32 from, u32 to)
 
 void ClearBag(void)
 {
-    CpuFastFill(0, &gSaveBlock1Ptr->bag, sizeof(struct Bag));
+    CpuFastFill(0, &gSaveBlock3Ptr->bag, sizeof(struct Bag));
+    gSaveBlock3Ptr->expandedBagMagic = EXPANDED_BAG_SAVE_MAGIC;
+}
+
+void MigrateBagSaveData(void)
+{
+    if (gSaveBlock3Ptr->expandedBagMagic == EXPANDED_BAG_SAVE_MAGIC)
+        return;
+
+    ClearBag();
+    memcpy(gSaveBlock3Ptr->bag.items,
+           gSaveBlock1Ptr->legacyBag.items,
+           sizeof(gSaveBlock1Ptr->legacyBag.items));
+    memcpy(gSaveBlock3Ptr->bag.keyItems,
+           gSaveBlock1Ptr->legacyBag.keyItems,
+           sizeof(gSaveBlock1Ptr->legacyBag.keyItems));
+    memcpy(gSaveBlock3Ptr->bag.pokeBalls,
+           gSaveBlock1Ptr->legacyBag.pokeBalls,
+           sizeof(gSaveBlock1Ptr->legacyBag.pokeBalls));
+    memcpy(gSaveBlock3Ptr->bag.TMsHMs,
+           gSaveBlock1Ptr->legacyBag.TMsHMs,
+           sizeof(gSaveBlock1Ptr->legacyBag.TMsHMs));
+    memcpy(gSaveBlock3Ptr->bag.berries,
+           gSaveBlock1Ptr->legacyBag.berries,
+           sizeof(gSaveBlock1Ptr->legacyBag.berries));
+}
+
+// Mom's optional Running Shoes bonus is deliberately fixed rather than an
+// item-randomizer source.  Its script calls this native function directly so
+// the generic giveitem hooks cannot turn the 99 Ultra Balls into another item.
+void GiveMomBonusUltraBalls(void)
+{
+    AddBagItem(ITEM_ULTRA_BALL, 99);
 }
 
 static inline u16 NONNULL BagPocket_CountTotalItemQuantity(struct BagPocket *pocket, enum Item itemId)

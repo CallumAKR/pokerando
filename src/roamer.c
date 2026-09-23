@@ -1,4 +1,5 @@
 #include "global.h"
+#include "runtime_randomizer.h"
 #include "event_data.h"
 #include "ow_abilities.h"
 #include "pokemon.h"
@@ -140,6 +141,8 @@ static u8 GetFirstInactiveRoamerIndex(void)
 bool8 TryAddRoamer(enum Species species, u8 level)
 {
     u8 index = GetFirstInactiveRoamerIndex();
+
+    species = RuntimeRandomizerStaticSpecies(0, index, species);
 
     if (index < ROAMER_COUNT)
     {
