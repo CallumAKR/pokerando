@@ -61,6 +61,12 @@ jobs:
           )
           PY
 
+      - name: Generate ignored source headers
+        run: |
+          make -j$(nproc) -f make_tools.mk \
+            tools/jsonproc tools/mapjson tools/trainerproc
+          make generated
+
       # A fresh clone cannot run the full asset build because this repository
       # intentionally ignores the installer-supplied compresSmol tool.
       - name: Check runtime engine with ARM GCC
