@@ -73,6 +73,9 @@ jobs:
         run: |
           arm-none-eabi-gcc \
             -fsyntax-only -std=gnu17 \
+            -mthumb -mthumb-interwork -mabi=apcs-gnu \
+            -mtune=arm7tdmi -march=armv4t \
+            -DMODERN=1 -DTESTING=0 -DEMERALD \
             -iquote include -iquote tools/agbcc/include \
             -Wno-attributes -Wno-unknown-pragmas \
             src/runtime_randomizer.c
