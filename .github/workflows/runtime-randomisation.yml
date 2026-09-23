@@ -82,9 +82,25 @@ jobs:
 
       - name: Compile trainer runtime hook with project pipeline
         run: |
-          mkdir -p build/emerald/src build/assets
-          make NODEP=1 build/emerald/src/battle_main.o
-          if arm-none-eabi-objdump -h build/emerald/src/battle_main.o \
+          mkdir -p build/assets
+          cc1_path="$(arm-none-eabi-gcc --print-prog-name=cc1)"
+          arm-none-eabi-cpp \
+            -iquote include -Wno-trigraphs \
+            -DMODERN=1 -DTESTING=0 -DEMERALD -std=gnu17 \
+            src/battle_main.c \
+            | tools/preproc/preproc -i -g build/assets \
+                src/battle_main.c charmap.txt \
+            | "$cc1_path" -quiet \
+                -mthumb -mthumb-interwork -O2 -mabi=apcs-gnu \
+                -mtune=arm7tdmi -march=armv4t \
+                -Wno-pointer-to-int-cast -std=gnu17 -Werror -Wall \
+                -Wno-strict-aliasing -Wno-attribute-alias \
+                -Woverride-init -Wnonnull -Wenum-conversion \
+                -Wno-error=unused-function -o /tmp/battle_main.s -
+          arm-none-eabi-as \
+            -mcpu=arm7tdmi -march=armv4t -meabi=5 \
+            -o /tmp/battle_main.o /tmp/battle_main.s
+          if arm-none-eabi-objdump -h /tmp/battle_main.o \
             | awk '$2 == ".data" && $3 != "00000000" { found = 1 } END { exit !found }'
           then
             echo "battle_main.o contains writable .data discarded by the linker"
