@@ -109,6 +109,11 @@ LittlerootTown_OnFrame:
 
 LittlerootTown_EventScript_StepOffTruckMale::
 	lockall
+#if RANDOMIZER_SKIP_INTRO
+	call LittlerootTown_EventScript_SkipIntro
+	releaseall
+	end
+#else
 	setvar VAR_0x8004, 5
 	setvar VAR_0x8005, 8
 	call LittlerootTown_EventScript_GoInsideWithMom
@@ -117,9 +122,15 @@ LittlerootTown_EventScript_StepOffTruckMale::
 	waitstate
 	releaseall
 	end
+#endif
 
 LittlerootTown_EventScript_StepOffTruckFemale::
 	lockall
+#if RANDOMIZER_SKIP_INTRO
+	call LittlerootTown_EventScript_SkipIntro
+	releaseall
+	end
+#else
 	setvar VAR_0x8004, 14
 	setvar VAR_0x8005, 8
 	call LittlerootTown_EventScript_GoInsideWithMom
@@ -128,6 +139,31 @@ LittlerootTown_EventScript_StepOffTruckFemale::
 	waitstate
 	releaseall
 	end
+#endif
+
+#if RANDOMIZER_SKIP_INTRO
+LittlerootTown_EventScript_SkipIntro::
+	playse SE_LEDGE
+	applymovement LOCALID_PLAYER, LittlerootTown_Movement_PlayerStepOffTruck
+	waitmovement 0
+	setflag FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_TRUCK
+	setflag FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_TRUCK
+	setflag FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_1
+	setflag FLAG_HIDE_LITTLEROOT_TOWN_PLAYERS_HOUSE_VIGOROTH_2
+	setflag FLAG_MET_RIVAL_MOM
+	setflag FLAG_SET_WALL_CLOCK
+	setvar VAR_LITTLEROOT_INTRO_STATE, 7
+	setvar VAR_LITTLEROOT_HOUSES_STATE_BRENDAN, 2
+	setvar VAR_LITTLEROOT_HOUSES_STATE_MAY, 2
+	setvar VAR_LITTLEROOT_RIVAL_STATE, 3
+	setvar VAR_LITTLEROOT_TOWN_STATE, 2
+	setvar VAR_ROUTE101_STATE, 2
+	setobjectxyperm LOCALID_LITTLEROOT_TWIN, 10, 1
+	setobjectmovementtype LOCALID_LITTLEROOT_TWIN, MOVEMENT_TYPE_FACE_UP
+	clearflag FLAG_HIDE_LITTLEROOT_TOWN_FAT_MAN
+	clearflag FLAG_HIDE_MAP_NAME_POPUP
+	return
+#endif
 
 LittlerootTown_EventScript_GoInsideWithMom::
 	delay 15

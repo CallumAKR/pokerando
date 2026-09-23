@@ -243,6 +243,13 @@ void NewGameInitData(void)
         RunScriptImmediately(EventScript_ResetAllMapFlagsFrlg);
     else
         RunScriptImmediately(EventScript_ResetAllMapFlags);
+#if RANDOMIZER_SKIP_INTRO
+    if (!IS_FRLG)
+    {
+        FlagSet(FLAG_SET_WALL_CLOCK);
+        InitTimeBasedEvents();
+    }
+#endif
 #if IS_FRLG
         StringCopy(gSaveBlock1Ptr->rivalName, rivalName);
 #endif

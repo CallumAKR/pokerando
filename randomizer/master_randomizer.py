@@ -900,6 +900,7 @@ def randomize(
     game_perma_repel=False,
     game_cap_candy=False,
     game_mom_bonus=False,
+    game_skip_intro=False,
     game_party_heal=False,
     game_time_turner=False,
     game_weather_setter=False,
@@ -1257,6 +1258,7 @@ def randomize(
             (effective_perma_repel, "Receive Perma Repel"),
             (effective_cap_candy, "Level to cap party action"),
             (game_mom_bonus, "Mom's Running Shoes bonus"),
+            (game_skip_intro, "Skip Littleroot intro"),
             (effective_party_heal, "Receive Party Heal"),
             (game_time_turner, "Receive Time Turner"),
             (game_weather_setter, "Receive Weather Setter"),
@@ -1436,6 +1438,7 @@ def randomize(
         perma_repel=effective_perma_repel,
         cap_candy=effective_cap_candy,
         mom_bonus=game_mom_bonus,
+        skip_intro=game_skip_intro,
         party_heal=effective_party_heal,
         time_turner=game_time_turner,
         weather_setter=game_weather_setter,
@@ -2088,6 +2091,15 @@ def main():
     )
 
     parser.add_argument(
+        "--skip-intro",
+        action="store_true",
+        help=(
+            "Exit the moving van and walk directly to Birch's starter bag, "
+            "skipping the family, clock, neighbour and help scenes."
+        ),
+    )
+
+    parser.add_argument(
         "--party-heal",
         action="store_true",
         help="Give the Party Restorer key item.",
@@ -2392,6 +2404,7 @@ def main():
             game_perma_repel=args.perma_repel,
             game_cap_candy=args.cap_candy,
             game_mom_bonus=args.mom_bonus,
+            game_skip_intro=args.skip_intro,
             game_party_heal=args.party_heal,
             game_time_turner=args.time_turner,
             game_weather_setter=args.weather_setter,

@@ -28,16 +28,19 @@ jobs:
 
       - name: Randomiser tests
         run: |
-          python3 -m unittest \
+          PYTHONPATH=randomizer python3 -m unittest \
             randomizer/test_runtime_randomizer.py \
             randomizer/test_cap_candy.py \
             randomizer/test_utility_items.py \
-            randomizer/test_regional_evolutions.py
+            randomizer/test_regional_evolutions.py \
+            randomizer/test_skip_intro.py
 
       - name: Enable every runtime randomiser path
         run: |
           python3 - <<'PY'
           import sys
+          from pathlib import Path
+
           sys.path.insert(0, "randomizer")
           import runtime_randomizer_config as runtime
 
@@ -59,6 +62,24 @@ jobs:
               rival_starter_continuity=True,
               move_species_specific=True,
               move_same_type_bias=True,
+          )
+
+          game_options_header = Path(
+              "include/randomizer_game_options.h"
+          )
+          game_options_text = game_options_header.read_text(
+              encoding="utf-8"
+          )
+          disabled = "#define RANDOMIZER_SKIP_INTRO 0"
+          if disabled not in game_options_text:
+              raise RuntimeError("Skip-intro build flag is missing")
+          game_options_header.write_text(
+              game_options_text.replace(
+                  disabled,
+                  "#define RANDOMIZER_SKIP_INTRO 1",
+                  1,
+              ),
+              encoding="utf-8",
           )
           PY
 
@@ -127,6 +148,17 @@ jobs:
               -mcpu=arm7tdmi -march=armv4t -meabi=5 \
               -o "/tmp/$base.o" "/tmp/$base.s"
           done
+          tools/preproc/preproc -s data/event_scripts.s charmap.txt \
+            | arm-none-eabi-cpp \
+                -iquote include -Wno-trigraphs \
+                -DMODERN=1 -DTESTING=0 -DEMERALD -std=gnu17 \
+                -I include - \
+            | tools/preproc/preproc \
+                -ie data/event_scripts.s charmap.txt \
+            | arm-none-eabi-as \
+                -mcpu=arm7tdmi -march=armv4t -meabi=5 \
+                --defsym MODERN=1 --defsym EMERALD=1 \
+                -o /tmp/event_scripts.o
           if arm-none-eabi-objdump -h /tmp/battle_main.o \
             | awk '$2 == ".data" && $3 != "00000000" { found = 1 } END { exit !found }'
           then

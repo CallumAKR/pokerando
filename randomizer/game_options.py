@@ -61,6 +61,7 @@ GAME_OPTION_NAMES = {
     "perma_repel": "Perma Repel",
     "cap_candy": "Level to cap party action",
     "mom_bonus": "Mom's Ultra Balls and money",
+    "skip_intro": "Skip Littleroot intro",
     "party_heal": "Party Heal",
     "time_turner": "Time Turner",
     "weather_setter": "Weather Setter",
@@ -279,6 +280,7 @@ def _write_header(
     force_set_battle_style,
     disable_bag_in_trainer_battles,
     mom_bonus=False,
+    skip_intro=False,
     always_mirage_island=False,
     time_turner=False,
     weather_setter=False,
@@ -290,6 +292,7 @@ def _write_header(
         "RANDOMIZER_PERMA_REPEL": perma_repel,
         "RANDOMIZER_CAP_CANDY": cap_candy,
         "RANDOMIZER_MOM_BONUS": mom_bonus,
+        "RANDOMIZER_SKIP_INTRO": skip_intro,
         "RANDOMIZER_PARTY_HEAL": party_heal,
         "RANDOMIZER_TIME_TURNER": time_turner,
         "RANDOMIZER_WEATHER_SETTER": weather_setter,
@@ -1501,6 +1504,7 @@ def apply_game_options(
     perma_repel=False,
     cap_candy=False,
     mom_bonus=False,
+    skip_intro=False,
     party_heal=False,
     time_turner=False,
     weather_setter=False,
@@ -1545,6 +1549,7 @@ def apply_game_options(
             or legacy_field_items
         ),
         "mom_bonus": bool(mom_bonus),
+        "skip_intro": bool(skip_intro),
         "party_heal": bool(
             party_heal
             or legacy_field_items
@@ -1770,6 +1775,10 @@ def apply_game_options(
     print(
         "  Mom's running-shoes bonus: "
         + ("ON" if options["mom_bonus"] else "off")
+    )
+    print(
+        "  Skip Littleroot intro: "
+        + ("ON" if options["skip_intro"] else "off")
     )
     print(
         "  Party Heal: "

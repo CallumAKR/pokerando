@@ -197,6 +197,12 @@ OPTION_HELP = {
         "Balls and enough money to reach the ₽999,999 limit. It happens once "
         "on a new game and is independent of item randomisation."
     ),
+    "game_skip_intro": (
+        "Keeps the moving-van exit, then skips Mom's welcome, setting the "
+        "clock, the TV report, visiting the neighbour and the Route 101 help "
+        "cutscene. You can walk directly to Professor Birch's bag and choose "
+        "a starter. Later story events continue normally."
+    ),
     "game_party_heal": (
         "Gives the existing Party Restorer key item on a new game. It fully "
         "heals living party Pokémon without reviving permanently dead ones."
@@ -1036,6 +1042,7 @@ class RandomizerGUI(tk.Tk):
         self.game_perma_repel_var = tk.BooleanVar(value=False)
         self.game_cap_candy_var = tk.BooleanVar(value=False)
         self.game_mom_bonus_var = tk.BooleanVar(value=False)
+        self.game_skip_intro_var = tk.BooleanVar(value=False)
         self.game_party_heal_var = tk.BooleanVar(value=False)
         self.game_time_turner_var = tk.BooleanVar(value=False)
         self.game_weather_setter_var = tk.BooleanVar(value=False)
@@ -2527,6 +2534,14 @@ class RandomizerGUI(tk.Tk):
             tooltip=OPTION_HELP["game_mom_bonus"],
         ).pack(anchor="w", padx=12, pady=4)
 
+        FilledIndicatorOption(
+            game_options_box,
+            text="Skip intro",
+            variable=self.game_skip_intro_var,
+            shape="square",
+            tooltip=OPTION_HELP["game_skip_intro"],
+        ).pack(anchor="w", padx=12, pady=4)
+
         for label, variable, help_key in (
             (
                 "Enable level caps",
@@ -3224,6 +3239,7 @@ class RandomizerGUI(tk.Tk):
                 self.game_perma_repel_var,
                 self.game_cap_candy_var,
                 self.game_mom_bonus_var,
+                self.game_skip_intro_var,
                 self.game_party_heal_var,
                 self.game_time_turner_var,
                 self.game_weather_setter_var,
@@ -3440,6 +3456,7 @@ class RandomizerGUI(tk.Tk):
                 self.game_perma_repel_var.get(),
                 self.game_cap_candy_var.get(),
                 self.game_mom_bonus_var.get(),
+                self.game_skip_intro_var.get(),
                 self.game_party_heal_var.get(),
                 self.game_time_turner_var.get(),
                 self.game_weather_setter_var.get(),
@@ -3519,6 +3536,7 @@ class RandomizerGUI(tk.Tk):
         game_perma_repel,
         game_cap_candy,
         game_mom_bonus,
+        game_skip_intro,
         game_party_heal,
         game_time_turner,
         game_weather_setter,
@@ -3715,6 +3733,7 @@ class RandomizerGUI(tk.Tk):
                             (game_perma_repel, "Receive Perma Repel"),
                             (game_cap_candy, "Level to cap party action"),
                             (game_mom_bonus, "Mom's Running Shoes bonus"),
+                            (game_skip_intro, "Skip Littleroot intro"),
                             (game_party_heal, "Receive Party Heal"),
                             (game_time_turner, "Receive Time Turner"),
                             (game_weather_setter, "Receive Weather Setter"),
@@ -3933,6 +3952,7 @@ class RandomizerGUI(tk.Tk):
                         game_perma_repel=game_perma_repel,
                         game_cap_candy=game_cap_candy,
                         game_mom_bonus=game_mom_bonus,
+                        game_skip_intro=game_skip_intro,
                         game_party_heal=game_party_heal,
                         game_time_turner=game_time_turner,
                         game_weather_setter=game_weather_setter,
