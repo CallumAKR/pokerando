@@ -69,8 +69,8 @@ jobs:
         env:
           GAME_VERSION: EMERALD
         run: |
-          make -j$(nproc) -O \
-            TOOL_NAMES="bin2c gbafix gbagfx jsonproc mapjson mid2agb preproc ramscrgen rsfont scaninc trainerproc wav2agb" \
+          export TOOL_NAMES="bin2c gbafix gbagfx jsonproc mapjson mid2agb preproc ramscrgen rsfont scaninc trainerproc wav2agb"
+          make -e -j$(nproc) -O \
             build/emerald/src/runtime_randomizer.o \
             build/emerald/src/battle_ai_main.o \
             build/emerald/src/battle_main.o \
