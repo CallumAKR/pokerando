@@ -135,10 +135,22 @@ alongside the global options.
 
 ## Running from source
 
-For development, clone the repository and install the normal
-`pokeemerald-expansion` build dependencies for your operating system. The
-upstream instructions are retained in [`INSTALL.md`](INSTALL.md); Linux or WSL2
-is the recommended source-build environment.
+### Prerequisites
+
+Running PokéRando directly from source requires:
+
+- **Python 3** with Tkinter support.
+- **The pokeemerald-expansion build toolchain.** On native Windows, the
+  simplest supported setup is **devkitPro with devkitARM**, including the
+  MSYS2 tools supplied by devkitPro. GNU Make must be available on `PATH`.
+- On Linux or WSL2, install the normal `pokeemerald-expansion` build
+  dependencies instead.
+
+The upstream build instructions are retained in [`INSTALL.md`](INSTALL.md).
+Linux or WSL2 is the recommended development environment, but native Windows
+works with devkitPro/devkitARM.
+
+After installing the prerequisites, clone the repository and launch the GUI:
 
 ```bash
 git clone https://github.com/CallumAKR/pokerando.git
@@ -146,9 +158,15 @@ cd pokerando
 python3 randomizer/gui.py
 ```
 
-The GUI uses Tkinter. On distributions that package it separately, install the
-appropriate `python3-tk` package. Source checkouts use the host build tools;
-packaged Windows releases instead use their bundled toolchain.
+On Windows, `python randomizer/gui.py` can be used if `python3` is not the
+registered command. The GUI uses Tkinter; on Linux distributions that package
+it separately, install the appropriate `python3-tk` package.
+
+> [!NOTE]
+> These prerequisites apply only when running PokéRando from source. The
+> packaged Windows release contains its own Python runtime and build toolchain,
+> so users of `Randomizer.exe` do not need to install Python, devkitPro,
+> devkitARM, MSYS2 or GNU Make separately.
 
 An advanced command-line interface is also available:
 
