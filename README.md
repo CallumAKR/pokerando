@@ -115,6 +115,7 @@ The GUI also includes independent gameplay and quality-of-life options:
 - Perma Repel, Party Restorer, Time Turner and Weather Setter tools
 - Guaranteed captures, forced shinies and permanent-death rules
 - Mom's Running Shoes bonus of 99 Ultra Balls and maximum money
+- Optional intro skip from the moving van directly to Birch's starter bag
 - Expanded Bag capacity
 - Mirage Island and event-island access options
 - Lilycove catalogues for TMs, evolution items, regional postcards and Mega
