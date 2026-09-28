@@ -1468,11 +1468,13 @@ def randomize(
         add_evolution_items
         or add_regional_postcards
         or add_mega_stones
+        or game_permanent_megas
     ):
         configure_lilycove_evolution_shop(
             add_evolution_items=add_evolution_items,
             add_regional_postcards=add_regional_postcards,
             add_mega_stones=add_mega_stones,
+            add_terapagos_upgrades=game_permanent_megas,
         )
 
     if manual_starters is not None:
