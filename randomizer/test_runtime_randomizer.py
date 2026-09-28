@@ -203,6 +203,18 @@ class RuntimeRandomizerTests(unittest.TestCase):
             "gBattleMons[battlerAtk].species == SPECIES_TERAPAGOS_STELLAR",
             battle,
         )
+        self.assertIn(
+            "moveType == TYPE_NORMAL",
+            battle,
+        )
+        self.assertIn(
+            "UQ_4_12(1.3333)",
+            battle,
+        )
+        self.assertIn(
+            "UQ_4_12(1.2)",
+            battle,
+        )
 
     def test_runtime_trainer_id_does_not_require_linker_data(self):
         source = (ROOT / "src/battle_main.c").read_text(
