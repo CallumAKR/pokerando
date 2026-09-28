@@ -6,6 +6,7 @@
 #include "runtime_randomizer.h"
 #include "starter_choose.h"
 #include "randomizer_runtime_config.h"
+#include "randomizer_game_options.h"
 #include "constants/abilities.h"
 #include "constants/characters.h"
 #include "constants/moves.h"
@@ -313,7 +314,9 @@ static bool32 IsRuntimeSpeciesCandidate(enum Species species,
      || gSpeciesInfo[species].isPrimalReversion
      || gSpeciesInfo[species].isUltraBurst
      || gSpeciesInfo[species].isGigantamax
-     || gSpeciesInfo[species].isTeraForm
+     || (gSpeciesInfo[species].isTeraForm
+      && !(RANDOMIZER_PERMANENT_MEGAS
+        && species == SPECIES_TERAPAGOS_STELLAR))
      || gSpeciesInfo[species].isTotem)
         return FALSE;
     if (!allowSpecial && IsSpecialSpecies(species))
@@ -1226,6 +1229,17 @@ static u32 AddEvolutionMoves(enum Species species, u32 count)
      && count < RUNTIME_LEVEL_UP_CAPACITY - 1)
     {
         sRuntimeLevelUpLearnset[count].move = MOVE_TAKE_DOWN;
+        sRuntimeLevelUpLearnset[count].level = 0;
+        count++;
+    }
+
+    if ((species == SPECIES_TERAPAGOS_NORMAL
+      || species == SPECIES_TERAPAGOS_TERASTAL
+      || species == SPECIES_TERAPAGOS_STELLAR)
+     && !RuntimeLearnsetContains(count, MOVE_TERA_STARSTORM)
+     && count < RUNTIME_LEVEL_UP_CAPACITY - 1)
+    {
+        sRuntimeLevelUpLearnset[count].move = MOVE_TERA_STARSTORM;
         sRuntimeLevelUpLearnset[count].level = 0;
         count++;
     }
