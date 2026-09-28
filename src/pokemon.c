@@ -4542,6 +4542,13 @@ static enum Species GetPermanentMegaEvolutionTarget(enum Species species, enum I
 #if RANDOMIZER_PERMANENT_MEGAS
     const struct FormChange *formChanges = GetSpeciesFormChanges(species);
 
+    if (species == SPECIES_TERAPAGOS_NORMAL
+     && evolutionItem == ITEM_NORMAL_TERA_SHARD)
+        return SPECIES_TERAPAGOS_TERASTAL;
+    if (species == SPECIES_TERAPAGOS_TERASTAL
+     && evolutionItem == ITEM_STELLAR_TERA_SHARD)
+        return SPECIES_TERAPAGOS_STELLAR;
+
     if (gSpeciesInfo[SanitizeSpeciesId(species)].isMegaEvolution)
         return SPECIES_NONE;
 

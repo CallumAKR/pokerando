@@ -875,9 +875,16 @@ static bool32 IsPermanentMegaStone(enum Item itemId)
         && gItemsInfo[SanitizeItemId(itemId)].holdEffect == HOLD_EFFECT_MEGA_STONE;
 }
 
+static bool32 IsPermanentTerapagosItem(enum Item itemId)
+{
+    return RANDOMIZER_PERMANENT_MEGAS
+        && (itemId == ITEM_NORMAL_TERA_SHARD
+         || itemId == ITEM_STELLAR_TERA_SHARD);
+}
+
 const u8 *GetItemEffect(enum Item itemId)
 {
-    if (IsPermanentMegaStone(itemId))
+    if (IsPermanentMegaStone(itemId) || IsPermanentTerapagosItem(itemId))
         return gItemEffect_EvoItem;
 
     if (itemId == ITEM_ENIGMA_BERRY_E_READER)
@@ -922,7 +929,7 @@ enum Pocket GetItemPocket(enum Item itemId)
 
 enum ItemType GetItemType(enum Item itemId)
 {
-    if (IsPermanentMegaStone(itemId))
+    if (IsPermanentMegaStone(itemId) || IsPermanentTerapagosItem(itemId))
         return ITEM_USE_PARTY_MENU;
 
     return gItemsInfo[SanitizeItemId(itemId)].type;
@@ -930,7 +937,7 @@ enum ItemType GetItemType(enum Item itemId)
 
 ItemUseFunc GetItemFieldFunc(enum Item itemId)
 {
-    if (IsPermanentMegaStone(itemId))
+    if (IsPermanentMegaStone(itemId) || IsPermanentTerapagosItem(itemId))
         return ItemUseOutOfBattle_EvolutionStone;
 
     return gItemsInfo[SanitizeItemId(itemId)].fieldUseFunc;

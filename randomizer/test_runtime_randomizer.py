@@ -180,6 +180,42 @@ class RuntimeRandomizerTests(unittest.TestCase):
             source,
         )
 
+    def test_permanent_terapagos_forms_and_starstorm_support(self):
+        runtime = (ROOT / "src/runtime_randomizer.c").read_text(
+            encoding="utf-8"
+        )
+        pokemon = (ROOT / "src/pokemon.c").read_text(encoding="utf-8")
+        items = (ROOT / "src/item.c").read_text(encoding="utf-8")
+        forms = (
+            ROOT / "src/data/pokemon/form_change_tables.h"
+        ).read_text(encoding="utf-8")
+        battle = (ROOT / "src/battle_util.c").read_text(encoding="utf-8")
+
+        self.assertIn("species == SPECIES_TERAPAGOS_STELLAR", runtime)
+        self.assertIn("MOVE_TERA_STARSTORM", runtime)
+        self.assertIn("ITEM_NORMAL_TERA_SHARD", pokemon)
+        self.assertIn("SPECIES_TERAPAGOS_TERASTAL", pokemon)
+        self.assertIn("ITEM_STELLAR_TERA_SHARD", pokemon)
+        self.assertIn("SPECIES_TERAPAGOS_STELLAR", pokemon)
+        self.assertIn("IsPermanentTerapagosItem", items)
+        self.assertIn("#if !RANDOMIZER_PERMANENT_MEGAS", forms)
+        self.assertIn(
+            "gBattleMons[battlerAtk].species == SPECIES_TERAPAGOS_STELLAR",
+            battle,
+        )
+        self.assertIn(
+            "moveType == TYPE_NORMAL",
+            battle,
+        )
+        self.assertIn(
+            "UQ_4_12(1.3333)",
+            battle,
+        )
+        self.assertIn(
+            "UQ_4_12(1.2)",
+            battle,
+        )
+
     def test_runtime_trainer_id_does_not_require_linker_data(self):
         source = (ROOT / "src/battle_main.c").read_text(
             encoding="utf-8"

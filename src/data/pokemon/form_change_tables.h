@@ -1,3 +1,5 @@
+#include "randomizer_game_options.h"
+
 #if P_FAMILY_BULBASAUR
 static const struct FormChange sVenusaurFormChangeTable[] =
 {
@@ -2168,12 +2170,14 @@ static const struct FormChange sOgerponCornerstoneFormChangeTable[] =
 #if P_FAMILY_TERAPAGOS
 static const struct FormChange sTerapagosFormChangeTable[] =
 {
+#if !RANDOMIZER_PERMANENT_MEGAS
     {FORM_CHANGE_BATTLE_SWITCH_IN,        SPECIES_TERAPAGOS_TERASTAL, ABILITY_TERA_SHIFT},
 #if P_TERA_FORMS
     {FORM_CHANGE_BATTLE_TERASTALLIZATION, SPECIES_TERAPAGOS_STELLAR, TYPE_STELLAR},
 #endif
     {FORM_CHANGE_FAINT,                   SPECIES_TERAPAGOS_NORMAL},
     {FORM_CHANGE_END_BATTLE,              SPECIES_TERAPAGOS_NORMAL},
+#endif
     {FORM_CHANGE_TERMINATOR},
 };
 #endif //P_FAMILY_TERAPAGOS

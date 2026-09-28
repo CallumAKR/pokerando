@@ -491,6 +491,7 @@ def configure_lilycove_evolution_shop(
     add_evolution_items=False,
     add_regional_postcards=False,
     add_mega_stones=False,
+    add_terapagos_upgrades=False,
 ):
     """
     Add selected evolution-related stock to Lilycove 2F.
@@ -502,11 +503,13 @@ def configure_lilycove_evolution_shop(
         add_evolution_items
         or add_regional_postcards
         or add_mega_stones
+        or add_terapagos_upgrades
     ):
         return {
             "evolution_items": 0,
             "regional_postcards": 0,
             "mega_stones": 0,
+            "terapagos_upgrades": 0,
             "total_shop_items": 0,
         }
 
@@ -515,6 +518,7 @@ def configure_lilycove_evolution_shop(
     evolution_items = []
     regional_postcards = []
     mega_stones = []
+    terapagos_upgrades = []
     additions = []
 
     if add_evolution_items:
@@ -563,6 +567,23 @@ def configure_lilycove_evolution_shop(
             mega_stones
         )
 
+    if add_terapagos_upgrades:
+        terapagos_upgrades = [
+            "ITEM_NORMAL_TERA_SHARD",
+            "ITEM_STELLAR_TERA_SHARD",
+        ]
+        missing = [
+            item
+            for item in terapagos_upgrades
+            if item not in item_blocks
+        ]
+        if missing:
+            raise RuntimeError(
+                "Missing Terapagos upgrade item definitions: "
+                + ", ".join(missing)
+            )
+        additions.extend(terapagos_upgrades)
+
     additions = list(
         dict.fromkeys(
             additions
@@ -597,6 +618,12 @@ def configure_lilycove_evolution_shop(
             "to Lilycove 2F."
         )
 
+    if add_terapagos_upgrades:
+        print(
+            "Added Normal and Stellar Tera Shards for permanent "
+            "Terapagos upgrades to Lilycove 2F."
+        )
+
     print(
         f"Lilycove 2F now has {total} unique shop items."
     )
@@ -609,6 +636,7 @@ def configure_lilycove_evolution_shop(
         "mega_stones": len(
             mega_stones
         ),
+        "terapagos_upgrades": len(terapagos_upgrades),
         "total_shop_items": total,
     }
 
@@ -619,6 +647,7 @@ def add_evolution_items_to_lilycove_shop():
         add_evolution_items=True,
         add_regional_postcards=False,
         add_mega_stones=False,
+        add_terapagos_upgrades=False,
     )
 
 
@@ -628,6 +657,7 @@ def add_mega_stones_to_lilycove_shop():
         add_evolution_items=False,
         add_regional_postcards=False,
         add_mega_stones=True,
+        add_terapagos_upgrades=False,
     )
 
 
@@ -637,4 +667,5 @@ if __name__ == "__main__":
         add_evolution_items=True,
         add_regional_postcards=True,
         add_mega_stones=True,
+        add_terapagos_upgrades=True,
     )

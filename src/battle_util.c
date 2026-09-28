@@ -6488,6 +6488,22 @@ static inline u32 CalcMoveBasePowerAfterModifiers(struct DamageContext *ctx)
         break;
     }
 
+    // Permanent Stellar Terapagos keeps the offensive bonuses of its
+    // canonical Stellar-Terastallized state without becoming defensively
+    // Stellar or consuming the battle's Tera gimmick. Its underlying Normal
+    // STAB is 1.5x, so an extra 4/3 multiplier produces the canonical 2x
+    // boost for Normal attacks. All other damaging types, including Stellar
+    // Tera Starstorm, receive the persistent 1.2x Stellar boost.
+#if RANDOMIZER_PERMANENT_MEGAS
+    if (gBattleMons[battlerAtk].species == SPECIES_TERAPAGOS_STELLAR)
+    {
+        if (moveType == TYPE_NORMAL)
+            modifier = uq4_12_multiply(modifier, UQ_4_12(1.3333));
+        else if (moveType != TYPE_MYSTERY)
+            modifier = uq4_12_multiply(modifier, UQ_4_12(1.2));
+    }
+#endif
+
     // various effects
     for (u32 i = 0; i < gProtectStructs[battlerAtk].helpingHand; i++)
         modifier = uq4_12_multiply(modifier, UQ_4_12(1.5));
@@ -9055,7 +9071,9 @@ void SetDynamicMoveCategory(enum BattlerId battlerAtk, enum BattlerId battlerDef
             gBattleStruct->swapDamageCategory = GetCategoryBasedOnStats(battlerAtk) == DAMAGE_CATEGORY_PHYSICAL;
         break;
     case EFFECT_TERA_STARSTORM:
-        if (GetActiveGimmick(battlerAtk) == GIMMICK_TERA && GET_BASE_SPECIES_ID(GetMonData(GetBattlerMon(battlerAtk), MON_DATA_SPECIES)) == SPECIES_TERAPAGOS)
+        if (gBattleMons[battlerAtk].species == SPECIES_TERAPAGOS_STELLAR
+         || (GetActiveGimmick(battlerAtk) == GIMMICK_TERA
+          && GET_BASE_SPECIES_ID(GetMonData(GetBattlerMon(battlerAtk), MON_DATA_SPECIES)) == SPECIES_TERAPAGOS))
             gBattleStruct->swapDamageCategory = GetCategoryBasedOnStats(battlerAtk) == DAMAGE_CATEGORY_PHYSICAL;
         break;
     default:

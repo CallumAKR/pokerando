@@ -15448,7 +15448,7 @@ const struct ItemInfo gItemsInfo[] =
     [ITEM_NORMAL_TERA_SHARD] =
     {
         .name = ITEM_NAME("Normal Tera Shard"),
-        .price = 0,
+        .price = 10000,
         .description = sTeraShardDesc,
         .pocket = POCKET_ITEMS,
         .sortType = ITEM_TYPE_TERA_SHARD,
@@ -15931,7 +15931,7 @@ const struct ItemInfo gItemsInfo[] =
     [ITEM_STELLAR_TERA_SHARD] =
     {
         .name = ITEM_NAME("Stellar Tera Shard"),
-        .price = 0,
+        .price = 250000,
         .description = sTeraShardDesc,
         .pocket = POCKET_ITEMS,
         .sortType = ITEM_TYPE_TERA_SHARD,

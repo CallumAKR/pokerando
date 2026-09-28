@@ -226,15 +226,16 @@ OPTION_HELP = {
         "used throughout the game."
     ),
     "game_permanent_megas": (
-        "Turns every Mega Stone into a consumable party-menu evolution item. "
-        "Using the correct stone permanently changes that Pokémon into its "
-        "existing Mega species, using that species' current sprite, stats, "
-        "types and ability. Stone-to-Mega pairings are never shuffled by "
-        "evolution randomisation, while BST randomisation does affect Mega "
-        "stats according to its selected mode. Permanent Megas do not revert "
-        "after battle and can hold other items. Rayquaza keeps its existing "
-        "Dragon Ascent battle transformation because it does not use a Mega "
-        "Stone."
+        "Turns Mega Evolutions and Terapagos's three forms into permanent "
+        "Pokémon. Mega Stones remain consumable party-menu evolution items. "
+        "Terapagos stays in whichever form it has: a Normal Tera Shard upgrades "
+        "Normal Terapagos to Terastal form, while the much more expensive "
+        "Stellar Tera Shard upgrades Terastal Terapagos to Stellar form. Both "
+        "shards are stocked on Lilycove 2F while this option is enabled. "
+        "Tera Starstorm is always available from the move relearner for all "
+        "three Terapagos forms when Evolution-required moves is enabled. "
+        "Permanent forms do not revert after battle and can hold other items. "
+        "Rayquaza keeps its existing Dragon Ascent battle transformation."
     ),
     "game_level_caps": (
         "Enables the hard badge/story level caps already configured in this "
