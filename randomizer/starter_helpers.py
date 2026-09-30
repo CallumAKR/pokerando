@@ -117,6 +117,12 @@ def is_selectable_species(species, block):
     if species in {"SPECIES_NONE", "SPECIES_EGG"}:
         return False
 
+    # Stellar Terapagos is normally a temporary Tera form, but PokéRando's
+    # Permanent Mega / Terapagos Forms option promotes it to a persistent
+    # species. Keep other temporary Tera forms out of manual selectors.
+    if species == "SPECIES_TERAPAGOS_STELLAR":
+        return True
+
     if any(_has_flag(block, flag) for flag in INVALID_FORM_FLAGS):
         return False
 
