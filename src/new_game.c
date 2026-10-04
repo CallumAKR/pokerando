@@ -31,7 +31,6 @@
 #include "pokedex.h"
 #include "apprentice.h"
 #include "frontier_util.h"
-#include "pokedex.h"
 #include "save.h"
 #include "link_rfu.h"
 #include "main.h"
@@ -61,6 +60,7 @@ static void WarpToTruck(void);
 static void ResetMiniGamesRecords(void);
 static void ResetItemFlags(void);
 static void ResetDexNav(void);
+static void GiveOneOffCustomParty(void);
 
 EWRAM_DATA bool8 gDifferentSaveFile = FALSE;
 EWRAM_DATA bool8 gEnableContestDebugging = FALSE;
@@ -68,7 +68,29 @@ EWRAM_DATA bool8 gEnableContestDebugging = FALSE;
 static const struct ContestWinner sContestWinnerPicDummy =
 {
     .monName = _(""),
-    .trainerName = _("")
+    .trainerName = _(""),
+};
+
+struct OneOffPartyMon
+{
+    enum Species species;
+    enum Ability ability;
+    enum Item item;
+    u8 nature;
+    u8 hpEv;
+    u8 attackEv;
+    u8 speedEv;
+    u8 spAttackEv;
+};
+
+static const struct OneOffPartyMon sOneOffParty[PARTY_SIZE] =
+{
+    {SPECIES_GOLETT,     ABILITY_IRON_FIST,    ITEM_PUNCHING_GLOVE, NATURE_ADAMANT, 252, 252,   4,   0},
+    {SPECIES_KLEAVOR,    ABILITY_SHARPNESS,    ITEM_RAZOR_CLAW,     NATURE_JOLLY,     4, 252, 252,   0},
+    {SPECIES_TYRUNT,     ABILITY_STRONG_JAW,   ITEM_RAZOR_FANG,     NATURE_ADAMANT,   4, 252, 252,   0},
+    {SPECIES_MINCCINO,   ABILITY_SKILL_LINK,   ITEM_KINGS_ROCK,     NATURE_JOLLY,     4, 252, 252,   0},
+    {SPECIES_CLAUNCHER,  ABILITY_MEGA_LAUNCHER, ITEM_WISE_GLASSES, NATURE_TIMID,     4,   0, 252, 252},
+    {SPECIES_TOXTRICITY, ABILITY_PUNK_ROCK,    ITEM_METRONOME,      NATURE_MODEST,  252,   0,   4, 252},
 };
 
 void SetTrainerId(u32 trainerId, u8 *dst)
@@ -97,6 +119,48 @@ static void InitPlayerTrainerId(void)
     SetTrainerId(trainerId, gSaveBlock2Ptr->playerTrainerId);
 }
 
+static void GiveOneOffCustomParty(void)
+{
+    u32 i;
+
+    ZeroPlayerPartyMons();
+    gPartiesCount[B_TRAINER_PLAYER] = PARTY_SIZE;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][i];
+        const struct OneOffPartyMon *preset = &sOneOffParty[i];
+        u8 abilityNum;
+        u8 zero = 0;
+
+        // Personality modulo 25 determines nature, so the nature constant itself
+        // is a deterministic personality with the requested nature.
+        CreateMonWithIVs(mon, preset->species, 5, preset->nature, OTID_STRUCT_PLAYER_ID, MAX_PER_STAT_IVS);
+        GiveMonInitialMoveset(mon);
+
+        SetMonData(mon, MON_DATA_HELD_ITEM, &preset->item);
+        SetMonData(mon, MON_DATA_HP_EV, &preset->hpEv);
+        SetMonData(mon, MON_DATA_ATK_EV, &preset->attackEv);
+        SetMonData(mon, MON_DATA_DEF_EV, &zero);
+        SetMonData(mon, MON_DATA_SPEED_EV, &preset->speedEv);
+        SetMonData(mon, MON_DATA_SPATK_EV, &preset->spAttackEv);
+        SetMonData(mon, MON_DATA_SPDEF_EV, &zero);
+
+        // Use the exact requested canonical ability when it exists in one of
+        // the species' three ability slots.
+        for (abilityNum = 0; abilityNum < NUM_ABILITY_SLOTS; abilityNum++)
+        {
+            if (GetAbilityBySpecies(preset->species, abilityNum) == preset->ability)
+            {
+                SetMonData(mon, MON_DATA_ABILITY_NUM, &abilityNum);
+                break;
+            }
+        }
+
+        CalculateMonStats(mon);
+    }
+}
+
 // L=A isnt set here for some reason.
 static void SetDefaultOptions(void)
 {
@@ -121,7 +185,6 @@ void ClearAllContestWinnerPics(void)
 
     ClearContestWinnerPicsInContestHall();
 
-    // Clear Museum paintings
     for (i = MUSEUM_CONTEST_WINNERS_START; i < NUM_CONTEST_WINNERS; i++)
         gSaveBlock1Ptr->contestWinners[i] = sContestWinnerPicDummy;
 }
@@ -129,7 +192,6 @@ void ClearAllContestWinnerPics(void)
 static void ClearFrontierRecord(void)
 {
     CpuFill32(0, &gSaveBlock2Ptr->frontier, sizeof(gSaveBlock2Ptr->frontier));
-
     gSaveBlock2Ptr->frontier.opponentNames[0][0] = EOS;
     gSaveBlock2Ptr->frontier.opponentNames[1][0] = EOS;
 }
@@ -203,27 +265,19 @@ void NewGameInitData(void)
     DeactivateAllRoamers();
     gSaveBlock1Ptr->registeredItem = ITEM_NONE;
     ClearBag();
-    // RANDOMIZER GAME OPTIONS: STARTING PARTY HEAL
 #if RANDOMIZER_PARTY_HEAL
     AddBagItem(ITEM_PARTY_RESTORER, 1);
 #endif
-    // RANDOMIZER GAME OPTIONS: STARTING PERMA REPEL
 #if RANDOMIZER_PERMA_REPEL
     AddBagItem(ITEM_PERMA_REPEL, 1);
 #endif
-    // RANDOMIZER GAME OPTIONS: STARTING TIME TURNER
 #if RANDOMIZER_TIME_TURNER
     AddBagItem(ITEM_TIME_TURNER, 1);
 #endif
-    // RANDOMIZER GAME OPTIONS: STARTING WEATHER SETTER
 #if RANDOMIZER_WEATHER_SETTER
     AddBagItem(ITEM_WEATHER_SETTER, 1);
 #endif
-    // RANDOMIZER GAME OPTIONS: STARTING HM-FREE FIELD TOOLS
 #if RANDOMIZER_HM_FREE_FIELD_MOVES
-    /*
-     * Randomizer utility HM tools
-     */
     AddBagItem(ITEM_FLY_TOOL, 1);
     AddBagItem(ITEM_FLASH_TOOL, 1);
     AddBagItem(ITEM_DIG_TOOL, 1);
@@ -251,7 +305,7 @@ void NewGameInitData(void)
     }
 #endif
 #if IS_FRLG
-        StringCopy(gSaveBlock1Ptr->rivalName, rivalName);
+    StringCopy(gSaveBlock1Ptr->rivalName, rivalName);
 #endif
     ResetMiniGamesRecords();
     InitUnionRoomChatRegisteredTexts();
@@ -268,12 +322,14 @@ void NewGameInitData(void)
     ResetItemFlags();
     ResetDexNav();
     ClearFollowerNPCData();
+
+    // One-off run preset: starts every new save with the requested six-mon team.
+    GiveOneOffCustomParty();
 }
 
 static void ResetMiniGamesRecords(void)
 {
     CpuFill16(0, &gSaveBlock2Ptr->berryCrush, sizeof(struct BerryCrush));
-    SetBerryPowder(&gSaveBlock2Ptr->berryCrush.berryPowderAmount, 0);
     ResetPokemonJumpRecords();
     CpuFill16(0, &gSaveBlock2Ptr->berryPick, sizeof(struct BerryPickingResults));
 }
