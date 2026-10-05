@@ -225,7 +225,10 @@ Route101_EventScript_BirchsBag::
 	setobjectxy LOCALID_PLAYER, 6, 13
 	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterLeft
 	waitmovement 0
-	special ChooseStarter
+	@ The one-off run already starts with a full six-Pokemon party. Do not
+	@ run the normal starter chooser/grant, which would send a seventh mon
+	@ to the PC. Keep a deterministic starter slot for rival continuity.
+	setvar VAR_STARTER_MON, 0
 	applymovement LOCALID_ROUTE101_BIRCH, Route101_Movement_BirchApproachPlayer
 	waitmovement 0
 	msgbox Route101_Text_YouSavedMe, MSGBOX_DEFAULT
@@ -295,4 +298,3 @@ Route101_Text_WildPokemonInTallGrass:
 Route101_Text_RouteSign:
 	.string "ROUTE 101\n"
 	.string "{UP_ARROW} OLDALE TOWN$"
-
