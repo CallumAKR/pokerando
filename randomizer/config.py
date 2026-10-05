@@ -43,11 +43,41 @@ PROTECTED_SPECIES = {
 # The ability randomizer finds the entire connected evolution
 # family automatically.
 #
-# For the current run, the Farfetch'd (Galar) -> Sirfetch'd
-# family will retain Sharpness in all three slots.
+# This one-off branch locks each custom party family to its requested
+# ability in all three slots. That makes the ability exact at creation and
+# preserves it through evolution even when ability randomisation is enabled.
 
 PROTECTED_FAMILIES = {
-    
+    "SPECIES_GOLETT": (
+        "ABILITY_IRON_FIST",
+        "ABILITY_IRON_FIST",
+        "ABILITY_IRON_FIST",
+    ),
+    "SPECIES_KLEAVOR": (
+        "ABILITY_SHARPNESS",
+        "ABILITY_SHARPNESS",
+        "ABILITY_SHARPNESS",
+    ),
+    "SPECIES_TYRUNT": (
+        "ABILITY_STRONG_JAW",
+        "ABILITY_STRONG_JAW",
+        "ABILITY_STRONG_JAW",
+    ),
+    "SPECIES_MINCCINO": (
+        "ABILITY_SKILL_LINK",
+        "ABILITY_SKILL_LINK",
+        "ABILITY_SKILL_LINK",
+    ),
+    "SPECIES_CLAUNCHER": (
+        "ABILITY_MEGA_LAUNCHER",
+        "ABILITY_MEGA_LAUNCHER",
+        "ABILITY_MEGA_LAUNCHER",
+    ),
+    "SPECIES_TOXEL": (
+        "ABILITY_PUNK_ROCK",
+        "ABILITY_PUNK_ROCK",
+        "ABILITY_PUNK_ROCK",
+    ),
 }
 
 
@@ -75,7 +105,6 @@ STARTER_MODE = "one_fixed"
 
 
 # Starter slot numbers:
-#
 # 0 = first starter  (currently GRASS_STARTER)
 # 1 = second starter (currently FIRE_STARTER)
 # 2 = third starter  (currently WATER_STARTER)
