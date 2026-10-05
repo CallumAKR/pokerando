@@ -85,12 +85,12 @@ struct OneOffPartyMon
 
 static const struct OneOffPartyMon sOneOffParty[PARTY_SIZE] =
 {
-    {SPECIES_GOLETT,     ABILITY_IRON_FIST,    ITEM_PUNCHING_GLOVE, NATURE_ADAMANT, 252, 252,   4,   0},
-    {SPECIES_KLEAVOR,    ABILITY_SHARPNESS,    ITEM_RAZOR_CLAW,     NATURE_JOLLY,     4, 252, 252,   0},
-    {SPECIES_TYRUNT,     ABILITY_STRONG_JAW,   ITEM_RAZOR_FANG,     NATURE_ADAMANT,   4, 252, 252,   0},
-    {SPECIES_MINCCINO,   ABILITY_SKILL_LINK,   ITEM_KINGS_ROCK,     NATURE_JOLLY,     4, 252, 252,   0},
-    {SPECIES_CLAUNCHER,  ABILITY_MEGA_LAUNCHER, ITEM_WISE_GLASSES, NATURE_TIMID,     4,   0, 252, 252},
-    {SPECIES_TOXTRICITY, ABILITY_PUNK_ROCK,    ITEM_METRONOME,      NATURE_MODEST,  252,   0,   4, 252},
+    {SPECIES_GOLETT,    ABILITY_IRON_FIST,     ITEM_PUNCHING_GLOVE, NATURE_ADAMANT, 252, 252,   4,   0},
+    {SPECIES_KLEAVOR,   ABILITY_SHARPNESS,     ITEM_RAZOR_CLAW,     NATURE_JOLLY,     4, 252, 252,   0},
+    {SPECIES_TYRUNT,    ABILITY_STRONG_JAW,    ITEM_RAZOR_FANG,     NATURE_ADAMANT,   4, 252, 252,   0},
+    {SPECIES_MINCCINO,  ABILITY_SKILL_LINK,    ITEM_KINGS_ROCK,     NATURE_JOLLY,     4, 252, 252,   0},
+    {SPECIES_CLAUNCHER, ABILITY_MEGA_LAUNCHER, ITEM_WISE_GLASSES,   NATURE_TIMID,     4,   0, 252, 252},
+    {SPECIES_TOXEL,     ABILITY_PUNK_ROCK,     ITEM_METRONOME,      NATURE_MODEST,  252,   0,   4, 252},
 };
 
 void SetTrainerId(u32 trainerId, u8 *dst)
@@ -146,8 +146,9 @@ static void GiveOneOffCustomParty(void)
         SetMonData(mon, MON_DATA_SPATK_EV, &preset->spAttackEv);
         SetMonData(mon, MON_DATA_SPDEF_EV, &zero);
 
-        // Use the exact requested canonical ability when it exists in one of
-        // the species' three ability slots.
+        // Use the exact requested ability when it exists in one of the species'
+        // three normal ability slots. A dedicated one-off override handles the
+        // randomized-data case separately.
         for (abilityNum = 0; abilityNum < NUM_ABILITY_SLOTS; abilityNum++)
         {
             if (GetAbilityBySpecies(preset->species, abilityNum) == preset->ability)
